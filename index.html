@@ -414,6 +414,7 @@
                 setMode('author');
                 document.getElementById('author').value = it.author || '';
                 setListValue(it.list || '');
+                doPushState();
                 doSearch();
             });
             tdAuthor.appendChild(aAuthor);
@@ -430,6 +431,7 @@
                 setMode('email');
                 document.getElementById('email').value = it.email || '';
                 setListValue(it.list || '');
+                doPushState();
                 doSearch();
             });
             tdEmail.appendChild(aEmail);
@@ -446,6 +448,7 @@
                 setMode('text-search');
                 document.getElementById('q').value = it.subject ?? '';
                 setListValue(it.list || '');
+                doPushState();
                 doSearch();
             });
             tdSubject.appendChild(aSubject);
@@ -593,6 +596,12 @@
         };
     }
 
+    function doPushState() {
+        const params = formToParams();
+        const query = qs(params);
+        history.pushState(params, '', query ? `?${query}` : location.pathname);
+    }
+
     function paramsFromUrl() {
         const sp = new URLSearchParams(location.search);
         return {
@@ -626,9 +635,7 @@
     // Only push on submit (no push for control changes or pagination)
     formEl.addEventListener('submit', (e) => {
         e.preventDefault();
-        const params = formToParams();
-        const query = qs(params);
-        history.pushState(params, '', query ? `?${query}` : location.pathname);
+        doPushState();
         doSearch(false);
     });
 
