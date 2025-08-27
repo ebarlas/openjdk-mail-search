@@ -8,6 +8,11 @@ logger = logging.getLogger(__name__)
 
 MAILING_LISTS = [
     'amber-dev',
+    'discuss',
+    'leyden-dev',
+    'lilliput-dev',
+    'loom-dev',
+    'net-dev',
     'nio-dev',
     'panama-dev',
     'valhalla-dev',

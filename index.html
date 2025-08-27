@@ -204,6 +204,10 @@
                 <select id="list" name="list">
                     <option value="">(any)</option>
                     <option>amber-dev</option>
+                    <option>discuss</option>
+                    <option>leyden-dev</option>
+                    <option>lilliput-dev</option>
+                    <option>loom-dev</option>
                     <option>net-dev</option>
                     <option>nio-dev</option>
                     <option>panama-dev</option>
@@ -219,7 +223,6 @@
                     <option value="50">50</option>
                 </select>
             </div>
-
         </div>
 
         <!-- Query row (mode-specific) -->
@@ -296,7 +299,7 @@
     const statusEl = document.querySelector('#status');
     const formEl = document.getElementById('search-form');
 
-    // State of the last query (for pagination)
+    // State of the last query (for pagination only; not tracked in URL/history)
     let last = {url: null, cursor: null};
 
     // ---------- Helpers ----------
@@ -309,6 +312,14 @@
         const d = new Date(v);
         if (isNaN(d)) return '';
         return d.toISOString().replace(/\.\d{3}Z$/, 'Z');
+    }
+
+    function utcZToLocalInput(isoZ) {
+        if (!isoZ) return '';
+        const d = new Date(isoZ);
+        if (isNaN(d)) return '';
+        const pad = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
     }
 
     function formatLocal(dtIso) {
@@ -392,7 +403,7 @@
             tdMonth.appendChild(aMonth);
             tr.appendChild(tdMonth);
 
-            // Author → populate author search
+            // Author → populate author search (no history push)
             const tdAuthor = document.createElement('td');
             const aAuthor = document.createElement('a');
             aAuthor.href = '#';
@@ -408,7 +419,7 @@
             tdAuthor.appendChild(aAuthor);
             tr.appendChild(tdAuthor);
 
-            // Email → populate email search
+            // Email → populate email search (no history push)
             const tdEmail = document.createElement('td');
             const aEmail = document.createElement('a');
             aEmail.href = '#';
@@ -424,7 +435,7 @@
             tdEmail.appendChild(aEmail);
             tr.appendChild(tdEmail);
 
-            // Subject → populate text search
+            // Subject → populate text search (no history push)
             const tdSubject = document.createElement('td');
             const aSubject = document.createElement('a');
             aSubject.href = '#';
@@ -566,20 +577,86 @@
         }
     }
 
-    nextBtn.addEventListener('click', () => doSearch(true));
+    // ---------- URL ↔ form state (shareable links + history) ----------
+    function formToParams() {
+        const mode = document.getElementById('mode').value;
+        return {
+            mode,
+            list: document.getElementById('list').value.trim(),
+            q: document.getElementById('q').value.trim(),
+            author: document.getElementById('author').value.trim(),
+            email: document.getElementById('email').value.trim(),
+            from: localToUtcZ(document.getElementById('from').value),
+            to: localToUtcZ(document.getElementById('to').value),
+            order: document.getElementById('order').value,
+            limit: document.getElementById('limit').value
+        };
+    }
 
+    function paramsFromUrl() {
+        const sp = new URLSearchParams(location.search);
+        return {
+            mode: sp.get('mode') || undefined,
+            list: sp.get('list') || '',
+            q: sp.get('q') || '',
+            author: sp.get('author') || '',
+            email: sp.get('email') || '',
+            from: sp.get('from') || '',
+            to: sp.get('to') || '',
+            order: sp.get('order') || '',
+            limit: sp.get('limit') || ''
+        };
+    }
+
+    function applyParamsToForm(p) {
+        const mode = p.mode || 'list-latest';
+        setMode(mode);
+        setListValue(p.list || '');
+        document.getElementById('q').value = p.q || '';
+        document.getElementById('author').value = p.author || '';
+        document.getElementById('email').value = p.email || '';
+        document.getElementById('order').value = p.order || 'desc';
+        if (p.limit) document.getElementById('limit').value = p.limit;
+
+        // Convert UTC Z times into local datetime-local inputs
+        document.getElementById('from').value = utcZToLocalInput(p.from || '');
+        document.getElementById('to').value = utcZToLocalInput(p.to || '');
+    }
+
+    // Only push on submit (no push for control changes or pagination)
     formEl.addEventListener('submit', (e) => {
         e.preventDefault();
+        const params = formToParams();
+        const query = qs(params);
+        history.pushState(params, '', query ? `?${query}` : location.pathname);
         doSearch(false);
     });
 
-    // React to search type changes
+    // Back/forward restores form and performs the search for that state
+    window.addEventListener('popstate', (e) => {
+        const state = e.state || paramsFromUrl();
+        applyParamsToForm(state || {});
+        doSearch(false);
+    });
+
+    nextBtn.addEventListener('click', () => doSearch(true));
+
+    // React to search type changes (no history ops here)
     document.getElementById('mode').addEventListener('change', (e) => {
         setMode(e.target.value);
     });
 
-    // Init
-    setMode('list-latest');
+    // Init: if URL has params, hydrate and run the search; otherwise default mode only
+    (function init() {
+        if (location.search) {
+            const p = paramsFromUrl();
+            applyParamsToForm(p);
+            // Only attempt a search; if invalid params, doSearch will show the error
+            doSearch(false);
+        } else {
+            setMode('list-latest');
+        }
+    })();
 </script>
 </body>
 </html>
