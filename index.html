@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <title>OpenJDK Mail Search</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1"/>
+    <style>
+        :root {
+            color-scheme: light dark;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 1rem;
+            font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+        }
+
+        h1 {
+            font-size: 1.25rem;
+            margin: 0 0 1rem;
+        }
+
+        .card {
+            margin: 0 auto;
+            padding: 1rem;
+            border: 1px solid rgba(127, 127, 127, .25);
+            border-radius: 10px;
+        }
+
+        form {
+            display: grid;
+            gap: .75rem;
+            grid-template-columns: repeat(12, 1fr);
+            align-items: end;
+        }
+
+        .row {
+            display: contents;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: .25rem;
+        }
+
+        input, select, button {
+            width: 100%;
+            padding: .5rem .6rem;
+            border-radius: 8px;
+            border: 1px solid rgba(127, 127, 127, .35);
+            background: inherit;
+            color: inherit;
+        }
+
+        button.primary {
+            background: hsl(212 100% 50%);
+            color: white;
+            border: none;
+        }
+
+        button[disabled] {
+            opacity: .6;
+            cursor: not-allowed;
+        }
+
+        .col-3 {
+            grid-column: span 3;
+            min-width: 170px;
+        }
+
+        .col-4 {
+            grid-column: span 4;
+        }
+
+        .col-6 {
+            grid-column: span 6;
+        }
+
+        .col-8 {
+            grid-column: span 8;
+        }
+
+        .col-9 {
+            grid-column: span 9;
+        }
+
+        .col-12 {
+            grid-column: span 12;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: .5rem;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
+        .status {
+            margin-top: .5rem;
+            min-height: 1.2em;
+        }
+
+        .status[aria-busy="true"]::after {
+            content: "Loading…";
+            opacity: .8;
+        }
+
+        .error {
+            color: #b00020;
+        }
+
+        .table-wrap {
+            margin-top: 1rem;
+            overflow: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 820px;
+        }
+
+        thead th {
+            text-align: left;
+            padding: .5rem .6rem;
+            position: sticky;
+            top: 0;
+            background: color-mix(in oklab, Canvas 85%, CanvasText 5%);
+            border-bottom: 1px solid rgba(127, 127, 127, .35);
+            z-index: 1;
+        }
+
+        tbody td {
+            padding: .45rem .6rem;
+            border-bottom: 1px solid rgba(127, 127, 127, .15);
+            vertical-align: top;
+        }
+
+        tbody tr:nth-child(odd) td {
+            background: color-mix(in oklab, Canvas 96%, CanvasText 2%);
+        }
+
+        a {
+            color: inherit;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+
+        .nowrap {
+            white-space: nowrap;
+        }
+
+        .muted {
+            opacity: .8;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: flex-end;
+            gap: .5rem;
+            margin-top: .75rem;
+        }
+
+        @media (max-width: 720px) {
+            .col-sm-6 {
+                grid-column: span 6;
+            }
+
+            .col-sm-12 {
+                grid-column: span 12;
+            }
+
+            form {
+                gap: .6rem;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1>OpenJDK Mail Search</h1>
+
+    <form id="search-form" autocomplete="off">
+        <!-- Mode -->
+        <div class="row">
+            <div class="col-6 col-sm-12">
+                <label for="mode">Search Type</label>
+                <select id="mode" name="mode">
+                    <option value="list-latest">Mailing list records by date range</option>
+                    <option value="text-search">Text search (in a list)</option>
+                    <option value="author">Author search (with or without list)</option>
+                    <option value="email">Email search (with or without list)</option>
+                </select>
+            </div>
+
+            <div class="col-3 col-sm-6">
+                <label for="list">List</label>
+                <select id="list" name="list">
+                    <option value="">(any)</option>
+                    <option>amber-dev</option>
+                    <option>net-dev</option>
+                    <option>nio-dev</option>
+                    <option>panama-dev</option>
+                    <option>valhalla-dev</option>
+                </select>
+            </div>
+
+            <div class="col-3 col-sm-6">
+                <label for="limit">Limit</label>
+                <select id="limit" name="limit">
+                    <option value="10">10</option>
+                    <option value="25" selected>25</option>
+                    <option value="50">50</option>
+                </select>
+            </div>
+
+        </div>
+
+        <!-- Query row (mode-specific) -->
+        <div class="row">
+            <div class="col-12" id="field-text" hidden>
+                <label for="q">Text Query</label>
+                <input id="q" name="q" placeholder="e.g., TLSv1.3 handshake"/>
+            </div>
+            <div class="col-12" id="field-author" hidden>
+                <label for="author">Author Name</label>
+                <input id="author" name="author" placeholder="e.g., Peter Parker"/>
+            </div>
+            <div class="col-12" id="field-email" hidden>
+                <label for="email">Author Email</label>
+                <input id="email" name="email" placeholder="e.g., peter.parker@marvel.com"/>
+            </div>
+        </div>
+
+        <!-- Date range + order -->
+        <div class="row">
+            <div class="col-4 col-sm-12">
+                <label for="from">From</label>
+                <input id="from" name="from" type="datetime-local" step="1"/>
+            </div>
+            <div class="col-4 col-sm-12">
+                <label for="to">To</label>
+                <input id="to" name="to" type="datetime-local" step="1"/>
+            </div>
+            <div class="col-4 col-sm-12">
+                <label for="order">Sort Order</label>
+                <select id="order" name="order">
+                    <option value="desc" selected>Newest first (desc)</option>
+                    <option value="asc">Oldest first (asc)</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="row">
+            <div class="col-12 toolbar">
+                <button type="submit" class="primary" id="search">Search</button>
+            </div>
+        </div>
+
+        <div id="status" class="status" role="status" aria-live="polite"></div>
+    </form>
+
+    <div class="table-wrap">
+        <table id="results">
+            <thead>
+            <tr>
+                <th class="nowrap">List</th>
+                <th class="nowrap">Date</th>
+                <th class="nowrap">Month</th>
+                <th>Author</th>
+                <th>Email</th>
+                <th>Subject</th>
+                <th class="nowrap">ID</th>
+            </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+        <div class="pagination">
+            <button id="next" hidden>Load More →</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ---------- Config ----------
+    const API_ROOT = 'https://www.barlasgarden.com/openjdk';
+    const resultsBody = document.querySelector('#results tbody');
+    const nextBtn = document.querySelector('#next');
+    const statusEl = document.querySelector('#status');
+    const formEl = document.getElementById('search-form');
+
+    // State of the last query (for pagination)
+    let last = {url: null, cursor: null};
+
+    // ---------- Helpers ----------
+    const qs = o => Object.entries(o)
+        .filter(([, v]) => v !== undefined && v !== null && v !== '')
+        .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
+
+    function localToUtcZ(v) {
+        if (!v) return '';
+        const d = new Date(v);
+        if (isNaN(d)) return '';
+        return d.toISOString().replace(/\.\d{3}Z$/, 'Z');
+    }
+
+    function formatLocal(dtIso) {
+        if (!dtIso) return '';
+        const d = new Date(dtIso);
+        return isNaN(d) ? dtIso : d.toLocaleString();
+    }
+
+    function setBusy(b) {
+        statusEl.setAttribute('aria-busy', b ? 'true' : 'false');
+    }
+
+    function setStatus(msg, isErr = false) {
+        statusEl.textContent = msg || '';
+        statusEl.classList.toggle('error', !!isErr);
+    }
+
+    function setListValue(list) {
+        const sel = document.getElementById('list');
+        if (!list) {
+            sel.value = '';
+            return;
+        }
+        const exists = Array.from(sel.options).some(o => o.value === list);
+        if (!exists) sel.add(new Option(list, list));
+        sel.value = list;
+    }
+
+    function openjdkLinks(item) {
+        const list = item.list;
+        const month = item.month;
+        const id = item.id;
+        const base = `https://mail.openjdk.org/pipermail/${encodeURIComponent(list)}`;
+        return {
+            list: `${base}/`,
+            month: `${base}/${encodeURIComponent(month)}/date.html`,
+            id: `${base}/${encodeURIComponent(month)}/${encodeURIComponent(id)}.html`,
+        };
+    }
+
+    function clearTable() {
+        resultsBody.innerHTML = '';
+        nextBtn.hidden = true;
+        last = {url: null, cursor: null};
+    }
+
+    function renderRows(items) {
+        const frag = document.createDocumentFragment();
+        for (const it of items) {
+            const links = openjdkLinks(it);
+            const tr = document.createElement('tr');
+
+            // List
+            const tdList = document.createElement('td');
+            const aList = document.createElement('a');
+            aList.href = links.list;
+            aList.target = '_blank';
+            aList.rel = 'noopener';
+            aList.title = `Open list page: ${it.list}`;
+            aList.textContent = it.list;
+            tdList.appendChild(aList);
+            tr.appendChild(tdList);
+
+            // Date (local display, tooltip shows raw ISO)
+            const tdDate = document.createElement('td');
+            const timeEl = document.createElement('time');
+            timeEl.dateTime = it.date || '';
+            timeEl.title = it.date || '';
+            timeEl.textContent = formatLocal(it.date);
+            tdDate.appendChild(timeEl);
+            tr.appendChild(tdDate);
+
+            // Month
+            const tdMonth = document.createElement('td');
+            const aMonth = document.createElement('a');
+            aMonth.href = links.month;
+            aMonth.target = '_blank';
+            aMonth.rel = 'noopener';
+            aMonth.title = `Open month page: ${it.list}/${it.month}`;
+            aMonth.textContent = it.month;
+            tdMonth.appendChild(aMonth);
+            tr.appendChild(tdMonth);
+
+            // Author → populate author search
+            const tdAuthor = document.createElement('td');
+            const aAuthor = document.createElement('a');
+            aAuthor.href = '#';
+            aAuthor.title = `Search by author: ${it.author || ''}`;
+            aAuthor.textContent = it.author || '';
+            aAuthor.addEventListener('click', (e) => {
+                e.preventDefault();
+                setMode('author');
+                document.getElementById('author').value = it.author || '';
+                setListValue(it.list || '');
+                doSearch();
+            });
+            tdAuthor.appendChild(aAuthor);
+            tr.appendChild(tdAuthor);
+
+            // Email → populate email search
+            const tdEmail = document.createElement('td');
+            const aEmail = document.createElement('a');
+            aEmail.href = '#';
+            aEmail.title = `Search by email: ${it.email || ''}`;
+            aEmail.textContent = it.email || '';
+            aEmail.addEventListener('click', (e) => {
+                e.preventDefault();
+                setMode('email');
+                document.getElementById('email').value = it.email || '';
+                setListValue(it.list || '');
+                doSearch();
+            });
+            tdEmail.appendChild(aEmail);
+            tr.appendChild(tdEmail);
+
+            // Subject → populate text search
+            const tdSubject = document.createElement('td');
+            const aSubject = document.createElement('a');
+            aSubject.href = '#';
+            aSubject.title = `Search text: ${it.subject ?? ''}`;
+            aSubject.textContent = it.subject ?? '';
+            aSubject.addEventListener('click', (e) => {
+                e.preventDefault();
+                setMode('text-search');
+                document.getElementById('q').value = it.subject ?? '';
+                setListValue(it.list || '');
+                doSearch();
+            });
+            tdSubject.appendChild(aSubject);
+            tr.appendChild(tdSubject);
+
+            // ID → message link
+            const tdId = document.createElement('td');
+            tdId.className = 'nowrap';
+            const aId = document.createElement('a');
+            aId.href = links.id;
+            aId.target = '_blank';
+            aId.rel = 'noopener';
+            aId.title = `Open message: ${it.id}.html`;
+            aId.textContent = it.id;
+            tdId.appendChild(aId);
+            tr.appendChild(tdId);
+
+            frag.appendChild(tr);
+        }
+        resultsBody.appendChild(frag);
+    }
+
+    function setMode(mode) {
+        document.getElementById('mode').value = mode;
+        const show = id => document.getElementById(id).hidden = false;
+        const hide = id => document.getElementById(id).hidden = true;
+        hide('field-text');
+        hide('field-author');
+        hide('field-email');
+
+        if (mode === 'text-search') show('field-text');
+        if (mode === 'author') show('field-author');
+        if (mode === 'email') show('field-email');
+
+        // list-latest & text-search require a list
+        const listSel = document.getElementById('list');
+        listSel.required = (mode === 'list-latest' || mode === 'text-search');
+    }
+
+    // ---------- Build API URL ----------
+    function buildUrl({mode, list, q, author, email, from, to, order, limit, cursor}) {
+        const base = API_ROOT;
+        const params = {order, limit};
+        if (from) params.from = from;
+        if (to) params.to = to;
+        if (cursor) params.cursor = cursor;
+
+        switch (mode) {
+            case 'list-latest': {
+                if (!list) throw new Error('List is required for this mode.');
+                const path = `${base}/lists/${encodeURIComponent(list)}/mail`;
+                return `${path}?${qs(params)}`;
+            }
+            case 'text-search': {
+                if (!list) throw new Error('List is required for text search.');
+                if (!q) throw new Error('Query is required for text search.');
+                const path = `${base}/lists/${encodeURIComponent(list)}/mail/search`;
+                return `${path}?${qs({...params, q})}`;
+            }
+            case 'author': {
+                if (!author) throw new Error('Author is required.');
+                if (list) {
+                    const path = `${base}/lists/${encodeURIComponent(list)}/mail/byauthor`;
+                    return `${path}?${qs({...params, author})}`;
+                } else {
+                    const path = `${base}/mail/byauthor`;
+                    return `${path}?${qs({...params, author})}`;
+                }
+            }
+            case 'email': {
+                if (!email) throw new Error('Email is required.');
+                if (list) {
+                    const path = `${base}/lists/${encodeURIComponent(list)}/mail/byemail`;
+                    return `${path}?${qs({...params, email})}`;
+                } else {
+                    const path = `${base}/mail/byemail`;
+                    return `${path}?${qs({...params, email})}`;
+                }
+            }
+            default:
+                throw new Error('Unknown mode');
+        }
+    }
+
+    async function fetchPage(url) {
+        setBusy(true);
+        setStatus('');
+        try {
+            const res = await fetch(url, {headers: {'accept': 'application/json'}});
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            return await res.json();
+        } finally {
+            setBusy(false);
+        }
+    }
+
+    async function doSearch(next = false) {
+        try {
+            if (!next) clearTable();
+
+            const mode = document.getElementById('mode').value;
+            const list = document.getElementById('list').value.trim();
+            const q = document.getElementById('q').value.trim();
+            const author = document.getElementById('author').value.trim();
+            const email = document.getElementById('email').value.trim();
+            const order = document.getElementById('order').value;
+            const limit = Math.max(1, Math.min(100, Number(document.getElementById('limit').value || 10)));
+
+            const from = localToUtcZ(document.getElementById('from').value);
+            const to = localToUtcZ(document.getElementById('to').value);
+
+            const url = buildUrl({
+                mode, list, q, author, email, from, to, order, limit,
+                cursor: next ? last.cursor : null
+            });
+
+            const data = await fetchPage(url);
+            const items = data.items || [];
+            renderRows(items);
+
+            last = {url, cursor: data.cursor || null};
+            nextBtn.hidden = !last.cursor;
+
+            setStatus(items.length ? `${items.length} result(s)` : 'No results');
+        } catch (err) {
+            console.error(err);
+            setStatus(String(err.message || err), true);
+            nextBtn.hidden = true;
+        }
+    }
+
+    nextBtn.addEventListener('click', () => doSearch(true));
+
+    formEl.addEventListener('submit', (e) => {
+        e.preventDefault();
+        doSearch(false);
+    });
+
+    // React to search type changes
+    document.getElementById('mode').addEventListener('change', (e) => {
+        setMode(e.target.value);
+    });
+
+    // Init
+    setMode('list-latest');
+</script>
+</body>
+</html>
