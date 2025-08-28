@@ -85,17 +85,18 @@ This makes strings like `java.util.concurrent` and `org/example/Main`</code>` di
 
 * `java.util.concurrent` →
 ```
-[java]
-[java, util]
-[java, util, concurrent]
-[util]
-[util, concurrent]
-[concurrent]
+java
+javautil
+javautilconcurrent
+util
+utilconcurrent
+concurrent
 ```
 
 ### Conventions and Edge Cases
 
 * Email is used as author if the author field doesn't exist in the mail record
+* Maximum token size of 500
 * Maximum of 2,500 terms per indexed mail record
 * Git and Mercurial changeset emails are not indexed
 

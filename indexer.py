@@ -5,8 +5,8 @@ STOP_WORDS = {"a", "an", "and", "are", "as", "at", "be", "but", "by", "for", "if
               "was", "will", "with"}
 
 
-def tokenize(text):
-    return text.split()
+def tokenize(text, max_token_length):
+    return [t for t in text.split() if len(t) <= max_token_length]
 
 
 def normalize(t):
@@ -35,6 +35,8 @@ def ngrams_from(arr, start, limit):
 
 def add_segment_ngrams(terms, arr, max_terms):
     for sub in sub_ranges(arr):
+        # joining here ensure simple query-time matching based on normalized input
+        # e.g. query for java.util.concurrent normalizes to javautilconcurrent
         n = normalize(''.join(sub))
         if n:
             term = [n]
@@ -58,8 +60,8 @@ def add_sub_ranges_ahead(terms, tokens, limit, max_terms):
                 terms.append(s)
 
 
-def index_field(terms, text, parse_code, all_ngrams, ngram_length, max_terms):
-    tokens = tokenize(text)
+def index_field(terms, text, parse_code, all_ngrams, ngram_length, max_terms, max_token_length):
+    tokens = tokenize(text, max_token_length)
     norm_tokens = normalize_and_filter(tokens)
     if all_ngrams:
         if len(terms) < max_terms and norm_tokens not in terms:
@@ -69,7 +71,7 @@ def index_field(terms, text, parse_code, all_ngrams, ngram_length, max_terms):
         add_delimited_tokens(terms, tokens, max_terms)
 
 
-def index(author, email, subject, body, ngram_length, max_terms):
+def index(author, email, subject, body, ngram_length, max_terms, max_token_length):
     targets = (
         (author, False, True),
         (email, False, True),
@@ -78,5 +80,5 @@ def index(author, email, subject, body, ngram_length, max_terms):
     )
     terms = []
     for text, parse_code, all_ngrams in targets:
-        index_field(terms, text, parse_code, all_ngrams, ngram_length, max_terms)
+        index_field(terms, text, parse_code, all_ngrams, ngram_length, max_terms, max_token_length)
     return terms

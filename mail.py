@@ -88,8 +88,9 @@ class MailingList:
         author = page.select_one('b').get_text().strip()
         email = page.select_one('a').get_text().replace(' at ', '@').strip()
         date = MailingList.convert_date(page.select_one('i').get_text().strip())
-        body = page.select_one('pre').get_text()
-        if author == '-':
+        pre = page.select_one('pre')
+        body = pre.get_text() if pre else '' # absent body observed
+        if not re.sub(r'[^\w+#]+', '', author): # author key has been observed to be '-' and '- -'
             author = email
         return Mail(list=list, month=month, id=id, subject=subject, author=author, email=email, date=date, body=body)
 

@@ -12,7 +12,7 @@ def is_changeset_mail(mail):
             mail.subject.endswith('changesets') or mail.body.startswith('Changeset:'))
 
 
-def process_mail(ml: MailingList, db: Database, mail_url: str, ngram_length: int, max_terms: int):
+def process_mail(ml: MailingList, db: Database, mail_url: str, ngram_length: int, max_terms: int, max_token_len: int):
     mail = ml.fetch_mail(mail_url)
     md = mail._asdict()
     if is_changeset_mail(mail):
@@ -24,7 +24,8 @@ def process_mail(ml: MailingList, db: Database, mail_url: str, ngram_length: int
         subject=mail.subject,
         body=mail.body,
         ngram_length=ngram_length,
-        max_terms=max_terms)
+        max_terms=max_terms,
+        max_token_length=max_token_len)
     if len(terms) == max_terms:
         logger.warning(f'truncated terms, month={mail.month}, id={mail.id}, subject=\'{mail.subject}\'')
     md['authorkey'] = indexer.normalize(mail.author)

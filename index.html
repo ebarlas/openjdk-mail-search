@@ -180,11 +180,67 @@
                 gap: .6rem;
             }
         }
+
+        /* Header row: title left, status right */
+        .header-bar {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: .75rem;
+            margin: 0 0 1rem; /* keep same spacing below header as before */
+        }
+
+        .header-bar h1 {
+            margin: 0;
+        }
+
+        /* override generic h1 margin in header */
+
+        /* tiny, pre-allocated status to avoid layout shift */
+        .meta-status {
+            font-size: 12px;
+            opacity: .8;
+            min-height: 1.2em; /* reserve vertical space */
+            white-space: nowrap; /* avoid wrapping jitter next to title */
+            text-align: right;
+        }
+
+        .meta-status .sep {
+            opacity: .6;
+            margin: 0 .4rem;
+        }
+
+        /* Stack on narrow screens */
+        @media (max-width: 720px) {
+            .header-bar {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: .25rem;
+            }
+
+            .meta-status {
+                text-align: left;
+                white-space: normal; /* allow wrap on small screens */
+            }
+        }
+
     </style>
 </head>
 <body>
 <div class="card">
-    <h1>OpenJDK Mail Search</h1>
+    <div class="header-bar">
+        <h1>OpenJDK Mail Search</h1>
+        <div class="meta-status" id="ingest-status">
+        <span>Last check:
+            <time id="last-check" datetime="">—</time>
+        </span>
+            <span class="sep">•</span>
+            <span>Last update:
+            <time id="last-update" datetime="">—</time>
+        </span>
+        </div>
+    </div>
+
 
     <form id="search-form" autocomplete="off">
         <!-- Mode -->
@@ -204,7 +260,14 @@
                 <select id="list" name="list">
                     <option value="">(any)</option>
                     <option>amber-dev</option>
+                    <option>babylon-dev</option>
+                    <option>classfile-api-dev</option>
+                    <option>compiler-dev</option>
+                    <option>crac-dev</option>
                     <option>discuss</option>
+                    <option>graal-dev</option>
+                    <option>jdk-dev</option>
+                    <option>jigsaw-dev</option>
                     <option>leyden-dev</option>
                     <option>lilliput-dev</option>
                     <option>loom-dev</option>
@@ -212,6 +275,7 @@
                     <option>nio-dev</option>
                     <option>panama-dev</option>
                     <option>valhalla-dev</option>
+                    <option>valhalla-spec-comments</option>
                 </select>
             </div>
 
@@ -263,6 +327,7 @@
         <!-- Actions -->
         <div class="row">
             <div class="col-12 toolbar">
+                <button type="button" id="reset">Reset</button>
                 <button type="submit" class="primary" id="search">Search</button>
             </div>
         </div>
@@ -306,6 +371,39 @@
     const qs = o => Object.entries(o)
         .filter(([, v]) => v !== undefined && v !== null && v !== '')
         .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join('&');
+
+    // --- Ingest status (last-check / last-update) ---
+    const lastCheckEl = document.getElementById('last-check');
+    const lastUpdateEl = document.getElementById('last-update');
+
+    async function refreshIngestStatus() {
+        try {
+            const res = await fetch(`${API_ROOT}/mail/status`, {headers: {'accept': 'application/json'}});
+            if (!res.ok) return; // ignore errors
+            const data = await res.json();
+
+            const lc = data && data.last_check ? String(data.last_check) : null;
+            const lu = data && data.last_update ? String(data.last_update) : null;
+
+            if (lc) {
+                lastCheckEl.dateTime = lc;
+                lastCheckEl.textContent = formatLocal(lc);
+            } else {
+                lastCheckEl.dateTime = '';
+                lastCheckEl.textContent = '—';
+            }
+
+            if (lu) {
+                lastUpdateEl.dateTime = lu;
+                lastUpdateEl.textContent = formatLocal(lu);
+            } else {
+                lastUpdateEl.dateTime = '';
+                lastUpdateEl.textContent = '—';
+            }
+        } catch {
+            // ignore any fetch/parse errors by design
+        }
+    }
 
     function localToUtcZ(v) {
         if (!v) return '';
@@ -574,7 +672,6 @@
 
             setStatus(items.length ? `${items.length} result(s)` : 'No results');
         } catch (err) {
-            console.error(err);
             setStatus(String(err.message || err), true);
             nextBtn.hidden = true;
         }
@@ -643,8 +740,15 @@
     window.addEventListener('popstate', (e) => {
         const state = e.state || paramsFromUrl();
         applyParamsToForm(state || {});
-        doSearch(false);
+
+        if (!isInitialState(state)) {
+            doSearch(false);
+        } else {
+            clearTable();
+            setStatus('');
+        }
     });
+
 
     nextBtn.addEventListener('click', () => doSearch(true));
 
@@ -653,17 +757,62 @@
         setMode(e.target.value);
     });
 
+    function isInitialState(p) {
+        return (
+            (p.mode === 'list-latest' || !p.mode) &&
+            !p.list &&
+            !p.q &&
+            !p.author &&
+            !p.email &&
+            !p.from &&
+            !p.to &&
+            (p.order === 'desc' || !p.order) &&
+            (!p.limit || p.limit === '25')
+        );
+    }
+
+    // ---------- Reset functionality ----------
+    function resetForm() {
+        // Restore initial defaults
+        setMode('list-latest');
+        setListValue('');
+        document.getElementById('q').value = '';
+        document.getElementById('author').value = '';
+        document.getElementById('email').value = '';
+        document.getElementById('order').value = 'desc';
+        document.getElementById('limit').value = '25';
+        document.getElementById('from').value = '';
+        document.getElementById('to').value = '';
+
+        clearTable();
+        setStatus('');
+
+        // Push initial state
+        const params = formToParams();
+        history.pushState(params, '', location.pathname);
+    }
+
+    // Wire up reset button
+    document.getElementById('reset').addEventListener('click', resetForm);
+
     // Init: if URL has params, hydrate and run the search; otherwise default mode only
     (function init() {
+        // Start background status fetch + 1-minute refresh
+        refreshIngestStatus();
+        setInterval(refreshIngestStatus, 60_000);
+
         if (location.search) {
             const p = paramsFromUrl();
             applyParamsToForm(p);
-            // Only attempt a search; if invalid params, doSearch will show the error
-            doSearch(false);
+            if (!isInitialState(p)) {
+                doSearch(false);
+            }
         } else {
             setMode('list-latest');
         }
     })();
+
+
 </script>
 </body>
 </html>

@@ -27,6 +27,7 @@ def parse_args():
     p.add_argument("--db_workers", type=int, default=50)
     p.add_argument("--mail_workers", type=int, default=25)
     p.add_argument("--max_terms", type=int, default=2500)
+    p.add_argument("--max_token_length", type=int, default=500)
     p.add_argument("--ngram_length", type=int, default=3)
     p.add_argument("--throttle_sleep", type=int, default=1.5)
     return p.parse_args()
@@ -47,7 +48,7 @@ def main():
     ml = mail.MailingList(mail.http_session(args.mail_workers), args.list, cp, args.mail_workers)
 
     def fn(mail_url):
-        return task.process_mail(ml, db, mail_url, args.ngram_length, args.max_terms)
+        return task.process_mail(ml, db, mail_url, args.ngram_length, args.max_terms, args.max_token_length)
 
     for batch in batched(ml.mail_urls(), args.mail_workers):
         mds = list(executor.map(fn, batch))

@@ -1,5 +1,6 @@
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timezone
 
 import boto3
 
@@ -130,3 +131,24 @@ class Database:
         if 'Item' in res:
             return res['Item']['month']['S'], res['Item']['id']['S']
         return '', ''
+
+    def update_status(self, changed):
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        update_expr = "SET #last_check = :now"
+        expr_attr_names = {"#last_check": "last_check"}
+        expr_attr_values = {":now": {"S": now}}
+
+        if changed:
+            update_expr += ", #last_update = :now"
+            expr_attr_names["#last_update"] = "last_update"
+
+        self.client.update_item(
+            TableName='mail-status',
+            Key={"pk": {"N": "1"}},
+            UpdateExpression=update_expr,
+            ExpressionAttributeNames=expr_attr_names,
+            ExpressionAttributeValues=expr_attr_values
+        )
+
+        return now

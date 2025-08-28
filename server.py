@@ -177,6 +177,18 @@ def mail_by_email_global(emailkey, cp: CommonParams):
     return res['Items'], res.get('LastEvaluatedKey')
 
 
+def get_status():
+    response = client.get_item(
+        TableName='mail-status',
+        Key={"pk": {"N": "1"}}
+    )
+
+    item = response.get("Item", {})
+    last_check = item.get("last_check", {}).get("S")
+    last_update = item.get("last_update", {}).get("S")
+    return last_check, last_update
+
+
 def convert_item(item):
     return {
         'list': item['list']['S'],
@@ -264,7 +276,7 @@ def lambda_handler(event, context):
             m := re.match(r'.*/lists/([^/]+)/mail/search$', request['uri'])) and 'q' in params:
         list_name = m.group(1)
         query = extract_param(params, 'q')
-        term = '|'.join(indexer.normalize_and_filter(indexer.tokenize(query)))
+        term = '|'.join(indexer.normalize_and_filter(indexer.tokenize(query, 1_000)))
         cp = common_params(params)
         items, start_key = search_mail(list_name, term, cp)
         return to_json_response(to_response_string(convert(items), start_key))
@@ -301,6 +313,13 @@ def lambda_handler(event, context):
         cp = common_params(params)
         items, start_key = mail_by_email_global(emailkey, cp)
         return to_json_response(to_response_string(convert(items), start_key))
+    if request['method'] == 'GET' and request['uri'].endswith('/mail/status'):
+        last_check, last_update = get_status()
+        res = {
+            'last_check': last_check,
+            'last_update': last_update
+        }
+        return to_json_response(to_json_string(res))
 
     return {
         'status': '404',
