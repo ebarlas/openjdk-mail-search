@@ -65,6 +65,28 @@ def latest_mail(list_name, cp: CommonParams):
     return res["Items"], res.get("LastEvaluatedKey")
 
 
+def latest_mail_global(cp: CommonParams):
+    params = {
+        "TableName": "mail-records",
+        "IndexName": "datekey_date",
+        "KeyConditionExpression": "#datekey = :dk",
+        "ExpressionAttributeNames": {"#datekey": "datekey"},
+        "ExpressionAttributeValues": {":dk": {"N": '1'}},
+        "ScanIndexForward": cp.forward,
+        "Limit": cp.limit,
+    }
+    if cp.date_range:
+        start_iso, end_iso = cp.date_range
+        params["KeyConditionExpression"] += " AND #date BETWEEN :from AND :to"
+        params["ExpressionAttributeNames"]["#date"] = "date"
+        params["ExpressionAttributeValues"][":from"] = {"S": f"{start_iso}"}
+        params["ExpressionAttributeValues"][":to"] = {"S": f"{end_iso}\uffff"}
+    if cp.start_key:
+        params["ExclusiveStartKey"] = cp.start_key
+    res = client.query(**params)
+    return res["Items"], res.get("LastEvaluatedKey")
+
+
 def mail_by_author(list_name, authorkey, cp: CommonParams):
     params = {
         'TableName': 'mail-records',
@@ -284,6 +306,10 @@ def lambda_handler(event, context):
         list_name = m.group(1)
         cp = common_params(params)
         items, start_key = latest_mail(list_name, cp)
+        return to_json_response(to_response_string(convert(items), start_key))
+    if request['method'] == 'GET' and request['uri'].endswith('/mail'):
+        cp = common_params(params)
+        items, start_key = latest_mail_global(cp)
         return to_json_response(to_response_string(convert(items), start_key))
     if request['method'] == 'GET' and (
             m := re.match(r'.*/lists/([^/]+)/mail/byauthor$', request['uri'])) and 'author' in params:

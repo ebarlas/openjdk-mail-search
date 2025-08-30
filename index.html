@@ -29,17 +29,25 @@
             padding: 1rem;
             border: 1px solid rgba(127, 127, 127, .25);
             border-radius: 10px;
+            background: Canvas; /* ensure a solid paint backdrop */
+            background-clip: padding-box; /* keep border from bleeding in */
+            overflow: hidden; /* clip any sub-pixel overflow on mobile */
+            isolation: isolate; /* new stacking context to avoid bleed-through */
+            max-width: 720px; /* optional: keeps things tidy on very small screens */
         }
 
+        /* Top-level form grid is simple; each .row handles the 12-col layout */
         form {
             display: grid;
             gap: .75rem;
-            grid-template-columns: repeat(12, 1fr);
-            align-items: end;
         }
 
+        /* Replace display: contents (causes mobile paint glitches) with a real grid */
         .row {
-            display: contents;
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: inherit;
+            align-items: end;
         }
 
         label {
@@ -53,7 +61,7 @@
             padding: .5rem .6rem;
             border-radius: 8px;
             border: 1px solid rgba(127, 127, 127, .35);
-            background: inherit;
+            background: Canvas; /* avoid transparent inherits over borders */
             color: inherit;
         }
 
@@ -167,6 +175,33 @@
             margin-top: .75rem;
         }
 
+        /* Header row: title left, status right */
+        .header-bar {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: .75rem;
+            margin: 0 0 1rem;
+        }
+
+        .header-bar h1 {
+            margin: 0;
+        }
+
+        .meta-status {
+            font-size: 12px;
+            opacity: .8;
+            min-height: 1.2em;
+            white-space: nowrap;
+            text-align: right;
+        }
+
+        .meta-status .sep {
+            opacity: .6;
+            margin: 0 .4rem;
+        }
+
+        /* Mobile tweaks */
         @media (max-width: 720px) {
             .col-sm-6 {
                 grid-column: span 6;
@@ -179,39 +214,7 @@
             form {
                 gap: .6rem;
             }
-        }
 
-        /* Header row: title left, status right */
-        .header-bar {
-            display: flex;
-            align-items: baseline;
-            justify-content: space-between;
-            gap: .75rem;
-            margin: 0 0 1rem; /* keep same spacing below header as before */
-        }
-
-        .header-bar h1 {
-            margin: 0;
-        }
-
-        /* override generic h1 margin in header */
-
-        /* tiny, pre-allocated status to avoid layout shift */
-        .meta-status {
-            font-size: 12px;
-            opacity: .8;
-            min-height: 1.2em; /* reserve vertical space */
-            white-space: nowrap; /* avoid wrapping jitter next to title */
-            text-align: right;
-        }
-
-        .meta-status .sep {
-            opacity: .6;
-            margin: 0 .4rem;
-        }
-
-        /* Stack on narrow screens */
-        @media (max-width: 720px) {
             .header-bar {
                 flex-direction: column;
                 align-items: flex-start;
@@ -220,10 +223,51 @@
 
             .meta-status {
                 text-align: left;
-                white-space: normal; /* allow wrap on small screens */
+                white-space: normal;
             }
         }
 
+        /* Make the card span available width */
+        .card {
+            max-width: none; /* remove width cap */
+            width: 100%;
+        }
+
+        /* Mobile: full-bleed layout */
+        @media (max-width: 720px) {
+            body {
+                padding: 0; /* no outer gutter */
+            }
+
+            .card {
+                margin: 0; /* no centering margin */
+                border-radius: 0; /* square edges to the screen */
+                width: 100%; /* fill viewport width */
+                /* Optional: uncomment to avoid a hard edge right against the screen
+                   border-left-width: 0;
+                   border-right-width: 0;
+                */
+            }
+        }
+
+        /* Mobile: put last-check and last-update on separate rows */
+        @media (max-width: 720px) {
+            .meta-status {
+                display: flex;
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 2px; /* tiny vertical spacing */
+                white-space: normal;
+            }
+
+            .meta-status .sep { /* the "•" between them */
+                display: none;
+            }
+
+            .meta-status > span {
+                display: block; /* ensure each occupies its own line */
+            }
+        }
     </style>
 </head>
 <body>
@@ -241,17 +285,16 @@
         </div>
     </div>
 
-
     <form id="search-form" autocomplete="off">
         <!-- Mode -->
         <div class="row">
             <div class="col-6 col-sm-12">
                 <label for="mode">Search Type</label>
                 <select id="mode" name="mode">
-                    <option value="list-latest">Mailing list records by date range</option>
-                    <option value="text-search">Text search (in a list)</option>
-                    <option value="author">Author search (with or without list)</option>
-                    <option value="email">Email search (with or without list)</option>
+                    <option value="list-latest">Mailing list records</option>
+                    <option value="text-search">Text search</option>
+                    <option value="author">Author search</option>
+                    <option value="email">Email search</option>
                 </select>
             </div>
 
@@ -583,7 +626,7 @@
 
         // list-latest & text-search require a list
         const listSel = document.getElementById('list');
-        listSel.required = (mode === 'list-latest' || mode === 'text-search');
+        listSel.required = mode === 'text-search';
     }
 
     // ---------- Build API URL ----------
@@ -596,8 +639,9 @@
 
         switch (mode) {
             case 'list-latest': {
-                if (!list) throw new Error('List is required for this mode.');
-                const path = `${base}/lists/${encodeURIComponent(list)}/mail`;
+                const path = list
+                    ? `${base}/lists/${encodeURIComponent(list)}/mail`
+                    : `${base}/mail`;
                 return `${path}?${qs(params)}`;
             }
             case 'text-search': {
@@ -741,7 +785,7 @@
         const state = e.state || paramsFromUrl();
         applyParamsToForm(state || {});
 
-        if (!isInitialState(state)) {
+        if (e.state || !isInitialState(state)) {
             doSearch(false);
         } else {
             clearTable();

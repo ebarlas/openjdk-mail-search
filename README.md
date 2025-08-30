@@ -148,8 +148,13 @@ Tables:
   * [GSI] `emailkey_date`
     * [PK] `emailkey`
     * [SK] `date`
+  * [GSI] `datekey_date`
+    * [PK] `datekey`
+    * [SK] `date`
 * `mail-checkpoints`
   * [PK] `list`
+* `mail-status`
+  * [PK] `pk`
 
 
 ## Query API
@@ -167,4 +172,4 @@ Tables:
 * Get mail across all lists by author email
   * `GET /mail/byemail?email={email}&order={asc|desc}&limit={limit}&cursor={cursor}&from={from}&to={to}`
 * Get latest mail across all lists
-  * `GET /mail/latest?limit={limit}`
+  * `GET /mail?order={asc|desc}&limit={limit}&cursor={cursor}&from={from}&to={to}`

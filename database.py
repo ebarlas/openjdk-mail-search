@@ -81,7 +81,8 @@ class Database:
             'authorkey_date': {'S': authorkey_date},
             'emailkey_date': {'S': emailkey_date},
             'subject': {'S': subject},
-            'terms': {'N': num_terms}
+            'terms': {'N': num_terms},
+            'datekey': {'N': '1'}
         }
 
         search_terms_reqs = []
