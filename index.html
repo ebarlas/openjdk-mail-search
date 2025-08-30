@@ -24,25 +24,25 @@
             margin: 0 0 1rem;
         }
 
+        /* Single, consolidated card rule */
         .card {
             margin: 0 auto;
             padding: 1rem;
             border: 1px solid rgba(127, 127, 127, .25);
             border-radius: 10px;
-            background: Canvas; /* ensure a solid paint backdrop */
-            background-clip: padding-box; /* keep border from bleeding in */
-            overflow: hidden; /* clip any sub-pixel overflow on mobile */
-            isolation: isolate; /* new stacking context to avoid bleed-through */
-            max-width: 720px; /* optional: keeps things tidy on very small screens */
+            background: Canvas;
+            background-clip: padding-box;
+            overflow: hidden;
+            isolation: isolate;
+            width: 100%;
         }
 
-        /* Top-level form grid is simple; each .row handles the 12-col layout */
+        /* Form grid */
         form {
             display: grid;
             gap: .75rem;
         }
 
-        /* Replace display: contents (causes mobile paint glitches) with a real grid */
         .row {
             display: grid;
             grid-template-columns: repeat(12, 1fr);
@@ -61,13 +61,13 @@
             padding: .5rem .6rem;
             border-radius: 8px;
             border: 1px solid rgba(127, 127, 127, .35);
-            background: Canvas; /* avoid transparent inherits over borders */
+            background: Canvas;
             color: inherit;
         }
 
         button.primary {
             background: hsl(212 100% 50%);
-            color: white;
+            color: #fff;
             border: none;
         }
 
@@ -76,6 +76,7 @@
             cursor: not-allowed;
         }
 
+        /* Column utilities (only the ones used) */
         .col-3 {
             grid-column: span 3;
             min-width: 170px;
@@ -89,18 +90,11 @@
             grid-column: span 6;
         }
 
-        .col-8 {
-            grid-column: span 8;
-        }
-
-        .col-9 {
-            grid-column: span 9;
-        }
-
         .col-12 {
             grid-column: span 12;
         }
 
+        /* Toolbar */
         .toolbar {
             display: flex;
             gap: .5rem;
@@ -108,6 +102,7 @@
             justify-content: flex-end;
         }
 
+        /* Status line */
         .status {
             margin-top: .5rem;
             min-height: 1.2em;
@@ -122,6 +117,7 @@
             color: #b00020;
         }
 
+        /* Results table */
         .table-wrap {
             margin-top: 1rem;
             overflow: auto;
@@ -164,10 +160,6 @@
             white-space: nowrap;
         }
 
-        .muted {
-            opacity: .8;
-        }
-
         .pagination {
             display: flex;
             justify-content: flex-end;
@@ -175,7 +167,7 @@
             margin-top: .75rem;
         }
 
-        /* Header row: title left, status right */
+        /* Header: title left, meta (timestamps + repo) right */
         .header-bar {
             display: flex;
             align-items: baseline;
@@ -186,6 +178,14 @@
 
         .header-bar h1 {
             margin: 0;
+        }
+
+        /* Meta cluster */
+        .meta {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            flex-wrap: wrap;
         }
 
         .meta-status {
@@ -201,8 +201,64 @@
             margin: 0 .4rem;
         }
 
-        /* Mobile tweaks */
+        /* Dot between text and icon on desktop */
+        .meta .sep-icon {
+            opacity: .6;
+            margin: 0 .35rem;
+        }
+
+        /* GitHub repo icon/link */
+        .repo-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            text-decoration: none;
+            color: inherit;
+            opacity: .9;
+        }
+
+        .repo-link:hover {
+            opacity: 1;
+            transform: translateY(-0.5px);
+        }
+
+        .repo-link:focus-visible {
+            outline: 2px solid currentColor;
+            outline-offset: 2px;
+        }
+
+        .repo-link svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* Visually hidden helper */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        /* ---------------- Mobile (≤720px) ---------------- */
         @media (max-width: 720px) {
+            body {
+                padding: 0;
+            }
+
+            .card {
+                margin: 0;
+                border-radius: 0;
+            }
+
             .col-sm-6 {
                 grid-column: span 6;
             }
@@ -216,72 +272,76 @@
             }
 
             .header-bar {
+                position: relative;
                 flex-direction: column;
-                align-items: flex-start;
-                gap: .25rem;
+                align-items: stretch;
+            }
+
+            /* Let timestamps flow full width; keep them on two rows */
+            .meta {
+                display: block;
+                width: 100%;
+                padding-right: 2.5rem;
             }
 
             .meta-status {
+                display: grid;
+                grid-template-rows: auto auto;
+                gap: 2px;
                 text-align: left;
                 white-space: normal;
             }
-        }
 
-        /* Make the card span available width */
-        .card {
-            max-width: none; /* remove width cap */
-            width: 100%;
-        }
-
-        /* Mobile: full-bleed layout */
-        @media (max-width: 720px) {
-            body {
-                padding: 0; /* no outer gutter */
-            }
-
-            .card {
-                margin: 0; /* no centering margin */
-                border-radius: 0; /* square edges to the screen */
-                width: 100%; /* fill viewport width */
-                /* Optional: uncomment to avoid a hard edge right against the screen
-                   border-left-width: 0;
-                   border-right-width: 0;
-                */
-            }
-        }
-
-        /* Mobile: put last-check and last-update on separate rows */
-        @media (max-width: 720px) {
-            .meta-status {
-                display: flex;
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 2px; /* tiny vertical spacing */
-                white-space: normal;
-            }
-
-            .meta-status .sep { /* the "•" between them */
+            .meta-status .sep, .meta .sep-icon {
                 display: none;
             }
 
-            .meta-status > span {
-                display: block; /* ensure each occupies its own line */
+            /* Icon in the top-right corner */
+            .repo-link {
+                position: absolute;
+                top: .25rem;
+                right: .25rem;
+                width: 32px;
+                height: 32px; /* comfy tap target */
+            }
+
+            .repo-link svg {
+                width: 18px;
+                height: 18px;
             }
         }
+
     </style>
 </head>
 <body>
 <div class="card">
     <div class="header-bar">
         <h1>OpenJDK Mail Search</h1>
-        <div class="meta-status" id="ingest-status">
-        <span>Last check:
-            <time id="last-check" datetime="">—</time>
-        </span>
-            <span class="sep">•</span>
-            <span>Last update:
-            <time id="last-update" datetime="">—</time>
-        </span>
+
+        <!-- Meta area: timestamps + GitHub repo link -->
+        <div class="meta">
+            <div class="meta-status" id="ingest-status">
+                <span>Last check: <time id="last-check" datetime="">—</time></span>
+                <span class="sep">•</span>
+                <span>Last update: <time id="last-update" datetime="">—</time></span>
+            </div>
+
+            <span class="sep sep-icon" aria-hidden="true">•</span>
+
+            <a class="repo-link" href="https://github.com/ebarlas/openjdk-mail-search"
+               target="_blank" rel="noopener"
+               title="View source on GitHub: ebarlas/openjdk-mail-search" aria-label="GitHub repository">
+                <!-- GitHub mark (inline SVG) -->
+                <svg viewBox="0 0 16 16" aria-hidden="true" fill="currentColor">
+                    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
+                     0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52
+                     -.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95
+                     0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27
+                     1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48
+                     0 1.07-.01 1.93-.01 2.19 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+                </svg>
+                <span class="sr-only">GitHub: ebarlas/openjdk-mail-search</span>
+            </a>
         </div>
     </div>
 
@@ -624,7 +684,7 @@
         if (mode === 'author') show('field-author');
         if (mode === 'email') show('field-email');
 
-        // list-latest & text-search require a list
+        // text-search requires a list
         const listSel = document.getElementById('list');
         listSel.required = mode === 'text-search';
     }
@@ -639,9 +699,7 @@
 
         switch (mode) {
             case 'list-latest': {
-                const path = list
-                    ? `${base}/lists/${encodeURIComponent(list)}/mail`
-                    : `${base}/mail`;
+                const path = list ? `${base}/lists/${encodeURIComponent(list)}/mail` : `${base}/mail`;
                 return `${path}?${qs(params)}`;
             }
             case 'text-search': {
@@ -793,7 +851,6 @@
         }
     });
 
-
     nextBtn.addEventListener('click', () => doSearch(true));
 
     // React to search type changes (no history ops here)
@@ -804,12 +861,8 @@
     function isInitialState(p) {
         return (
             (p.mode === 'list-latest' || !p.mode) &&
-            !p.list &&
-            !p.q &&
-            !p.author &&
-            !p.email &&
-            !p.from &&
-            !p.to &&
+            !p.list && !p.q && !p.author && !p.email &&
+            !p.from && !p.to &&
             (p.order === 'desc' || !p.order) &&
             (!p.limit || p.limit === '25')
         );
@@ -831,7 +884,6 @@
         clearTable();
         setStatus('');
 
-        // Push initial state
         const params = formToParams();
         history.pushState(params, '', location.pathname);
     }
@@ -855,8 +907,6 @@
             setMode('list-latest');
         }
     })();
-
-
 </script>
 </body>
 </html>
