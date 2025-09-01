@@ -9,6 +9,8 @@ history for targeted lists.
 
 https://openjdk.barlasgarden.com
 
+Thank you to [@bowbahdoe](https://github.com/bowbahdoe) for the Duke art and for other collaborations on this project. 
+
 ## Indexing Pipeline
 
 Indexing functionality resides in the `indexer.py` module. The module interface is an `index` function
