@@ -68,21 +68,21 @@ plus all short n‑grams
 
 ### 5. Code-Aware Segmentation
 
-This stage operates on raw body field tokens, and it invokes the normalize and filter functions.
+This stage performs additional tokenization on words that contain structural delimiters.
 
-Raw tokens that contain structural delimiters are split on `/`, `.`, `=`, and `::`.
+Raw tokens are split on `/`, `.`, `=`, and `::`.
 
-All contiguous segment combinations are normalized, filtered, and added as terms.
-This makes strings like `java.util.concurrent` and `org/example/Main`</code>` discoverable in multiple ways.
+All contiguous segment combinations are normalized, filtered, joined, and added as terms.
+This makes strings like `java.util.concurrent` and `org/example/Main` discoverable in multiple ways.
 
 * `java.util.concurrent` →
 ```
-java
-javautil
-javautilconcurrent
-util
-utilconcurrent
-concurrent
+[java, util, concurrent]
+[javautil, concurrent]
+[javautilconcurrent]
+[utilconcurrent]
+[util, concurrent]
+[concurrent]
 ```
 
 ### Conventions and Edge Cases
