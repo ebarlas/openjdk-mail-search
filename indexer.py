@@ -64,8 +64,9 @@ def index_field(terms, text, parse_code, all_ngrams, ngram_length, max_terms, ma
     tokens = tokenize(text, max_token_length)
     norm_tokens = normalize_and_filter(tokens)
     if all_ngrams:
-        if len(terms) < max_terms and norm_tokens not in terms:
-            terms.append(norm_tokens)
+        if norm_tokens: # empty field
+            if len(terms) < max_terms and norm_tokens not in terms:
+                terms.append(norm_tokens)
     add_sub_ranges_ahead(terms, norm_tokens, ngram_length, max_terms)
     if parse_code: # lowest priority, in case max-terms reached
         add_delimited_tokens(terms, tokens, max_terms)

@@ -100,6 +100,7 @@ class Database:
                 'author': {'S': author},
                 'email': {'S': email},
                 'subject': {'S': subject},
+                'term': {'S': joined_term}
             }
             search_terms_reqs.append({'PutRequest': {'Item': mst_item}})
 

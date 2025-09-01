@@ -121,6 +121,9 @@ Tables:
   * [SK] `date_month_id`
     * Slash-delimited composition of `date`, `month`, `id`
     * e.g. `2025-08-24T20:07:24Z/2025-August/027714`
+  * [GSI] `term_date`
+    * [PK] `term`
+    * [SK] `date`
 * `mail-records`
   * [PK] `list`
   * [SK] `month_id`
@@ -167,9 +170,11 @@ Tables:
   * `GET /lists/{list}/mail/byauthor?author={author}&order={asc|desc}&limit={limit}&cursor={cursor}&from={from}&to={to}`
 * Get mail for a list by author email
   * `GET /lists/{list}/mail/byemail?email={email}&order={asc|desc}&limit={limit}&cursor={cursor}&from={from}&to={to}`
+* Search mail across all lists
+  * `GET /mail/search?q={query}&order={asc|desc}&limit={limit}&cursor={cursor}&from={from}&to={to}`
 * Get mail across all lists by author name
   * `GET /mail/byauthor?author={author}&order={asc|desc}&limit={limit}&cursor={cursor}&from={from}&to={to}`
 * Get mail across all lists by author email
   * `GET /mail/byemail?email={email}&order={asc|desc}&limit={limit}&cursor={cursor}&from={from}&to={to}`
-* Get latest mail across all lists
+* Get mail across all lists
   * `GET /mail?order={asc|desc}&limit={limit}&cursor={cursor}&from={from}&to={to}`

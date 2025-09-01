@@ -443,11 +443,11 @@
             <thead>
             <tr>
                 <th class="nowrap">List</th>
+                <th>Author</th>
+                <th>Subject</th>
+                <th>Email</th>
                 <th class="nowrap">Date</th>
                 <th class="nowrap">Month</th>
-                <th>Author</th>
-                <th>Email</th>
-                <th>Subject</th>
                 <th class="nowrap">ID</th>
             </tr>
             </thead>
@@ -584,6 +584,57 @@
             tdList.appendChild(aList);
             tr.appendChild(tdList);
 
+            // Author → populate author search (no history push)
+            const tdAuthor = document.createElement('td');
+            const aAuthor = document.createElement('a');
+            aAuthor.href = '#';
+            aAuthor.title = `Search by author: ${it.author || ''}`;
+            aAuthor.textContent = it.author || '';
+            aAuthor.addEventListener('click', (e) => {
+                e.preventDefault();
+                setMode('author');
+                document.getElementById('author').value = it.author || '';
+                setListValue(it.list || '');
+                doPushState();
+                doSearch();
+            });
+            tdAuthor.appendChild(aAuthor);
+            tr.appendChild(tdAuthor);
+
+            // Subject → populate text search (no history push)
+            const tdSubject = document.createElement('td');
+            const aSubject = document.createElement('a');
+            aSubject.href = '#';
+            aSubject.title = `Search text: ${it.subject ?? ''}`;
+            aSubject.textContent = it.subject ?? '';
+            aSubject.addEventListener('click', (e) => {
+                e.preventDefault();
+                setMode('text-search');
+                document.getElementById('q').value = it.subject ?? '';
+                setListValue(it.list || '');
+                doPushState();
+                doSearch();
+            });
+            tdSubject.appendChild(aSubject);
+            tr.appendChild(tdSubject);
+
+            // Email → populate email search (no history push)
+            const tdEmail = document.createElement('td');
+            const aEmail = document.createElement('a');
+            aEmail.href = '#';
+            aEmail.title = `Search by email: ${it.email || ''}`;
+            aEmail.textContent = it.email || '';
+            aEmail.addEventListener('click', (e) => {
+                e.preventDefault();
+                setMode('email');
+                document.getElementById('email').value = it.email || '';
+                setListValue(it.list || '');
+                doPushState();
+                doSearch();
+            });
+            tdEmail.appendChild(aEmail);
+            tr.appendChild(tdEmail);
+
             // Date (local display, tooltip shows raw ISO)
             const tdDate = document.createElement('td');
             const timeEl = document.createElement('time');
@@ -603,57 +654,6 @@
             aMonth.textContent = it.month;
             tdMonth.appendChild(aMonth);
             tr.appendChild(tdMonth);
-
-            // Author → populate author search (no history push)
-            const tdAuthor = document.createElement('td');
-            const aAuthor = document.createElement('a');
-            aAuthor.href = '#';
-            aAuthor.title = `Search by author: ${it.author || ''}`;
-            aAuthor.textContent = it.author || '';
-            aAuthor.addEventListener('click', (e) => {
-                e.preventDefault();
-                setMode('author');
-                document.getElementById('author').value = it.author || '';
-                setListValue(it.list || '');
-                doPushState();
-                doSearch();
-            });
-            tdAuthor.appendChild(aAuthor);
-            tr.appendChild(tdAuthor);
-
-            // Email → populate email search (no history push)
-            const tdEmail = document.createElement('td');
-            const aEmail = document.createElement('a');
-            aEmail.href = '#';
-            aEmail.title = `Search by email: ${it.email || ''}`;
-            aEmail.textContent = it.email || '';
-            aEmail.addEventListener('click', (e) => {
-                e.preventDefault();
-                setMode('email');
-                document.getElementById('email').value = it.email || '';
-                setListValue(it.list || '');
-                doPushState();
-                doSearch();
-            });
-            tdEmail.appendChild(aEmail);
-            tr.appendChild(tdEmail);
-
-            // Subject → populate text search (no history push)
-            const tdSubject = document.createElement('td');
-            const aSubject = document.createElement('a');
-            aSubject.href = '#';
-            aSubject.title = `Search text: ${it.subject ?? ''}`;
-            aSubject.textContent = it.subject ?? '';
-            aSubject.addEventListener('click', (e) => {
-                e.preventDefault();
-                setMode('text-search');
-                document.getElementById('q').value = it.subject ?? '';
-                setListValue(it.list || '');
-                doPushState();
-                doSearch();
-            });
-            tdSubject.appendChild(aSubject);
-            tr.appendChild(tdSubject);
 
             // ID → message link
             const tdId = document.createElement('td');
@@ -683,10 +683,6 @@
         if (mode === 'text-search') show('field-text');
         if (mode === 'author') show('field-author');
         if (mode === 'email') show('field-email');
-
-        // text-search requires a list
-        const listSel = document.getElementById('list');
-        listSel.required = mode === 'text-search';
     }
 
     // ---------- Build API URL ----------
@@ -697,15 +693,18 @@
         if (to) params.to = to;
         if (cursor) params.cursor = cursor;
 
-        switch (mode) {
+        let effectiveMode = mode;
+        if (mode === 'text-search' && !q) {
+            effectiveMode = 'list-latest';
+        }
+
+        switch (effectiveMode) {
             case 'list-latest': {
                 const path = list ? `${base}/lists/${encodeURIComponent(list)}/mail` : `${base}/mail`;
                 return `${path}?${qs(params)}`;
             }
             case 'text-search': {
-                if (!list) throw new Error('List is required for text search.');
-                if (!q) throw new Error('Query is required for text search.');
-                const path = `${base}/lists/${encodeURIComponent(list)}/mail/search`;
+                const path = list ? `${base}/lists/${encodeURIComponent(list)}/mail/search` : `${base}/mail/search`;
                 return `${path}?${qs({...params, q})}`;
             }
             case 'author': {
@@ -842,13 +841,7 @@
     window.addEventListener('popstate', (e) => {
         const state = e.state || paramsFromUrl();
         applyParamsToForm(state || {});
-
-        if (e.state || !isInitialState(state)) {
-            doSearch(false);
-        } else {
-            clearTable();
-            setStatus('');
-        }
+        doSearch(false);
     });
 
     nextBtn.addEventListener('click', () => doSearch(true));
@@ -900,12 +893,11 @@
         if (location.search) {
             const p = paramsFromUrl();
             applyParamsToForm(p);
-            if (!isInitialState(p)) {
-                doSearch(false);
-            }
         } else {
             setMode('list-latest');
         }
+
+        doSearch(false);
     })();
 </script>
 </body>

@@ -43,6 +43,28 @@ def search_mail(list_name, term, cp: CommonParams):
     return res['Items'], res.get('LastEvaluatedKey')
 
 
+def search_mail_global(term, cp: CommonParams):
+    params = {
+        'TableName': 'mail-search-terms',
+        "IndexName": "term_date",
+        'ScanIndexForward': cp.forward,
+        'Limit': cp.limit,
+        'KeyConditionExpression': '#term = :term',
+        'ExpressionAttributeNames': {'#term': 'term'},
+        'ExpressionAttributeValues': {':term': {'S': f'{term}'}}
+    }
+    if cp.date_range:
+        start_iso, end_iso = cp.date_range
+        params["KeyConditionExpression"] += " AND #date BETWEEN :from AND :to"
+        params["ExpressionAttributeNames"]["#date"] = "date"
+        params["ExpressionAttributeValues"][":from"] = {"S": f"{start_iso}"}
+        params["ExpressionAttributeValues"][":to"] = {"S": f"{end_iso}\uffff"}
+    if cp.start_key:
+        params['ExclusiveStartKey'] = cp.start_key
+    res = client.query(**params)
+    return res['Items'], res.get('LastEvaluatedKey')
+
+
 def latest_mail(list_name, cp: CommonParams):
     params = {
         "TableName": "mail-records",
@@ -298,9 +320,15 @@ def lambda_handler(event, context):
             m := re.match(r'.*/lists/([^/]+)/mail/search$', request['uri'])) and 'q' in params:
         list_name = m.group(1)
         query = extract_param(params, 'q')
-        term = '|'.join(indexer.normalize_and_filter(indexer.tokenize(query, 1_000)))
+        term = '|'.join(indexer.normalize_and_filter(indexer.tokenize(query, 500)))
         cp = common_params(params)
         items, start_key = search_mail(list_name, term, cp)
+        return to_json_response(to_response_string(convert(items), start_key))
+    if request['method'] == 'GET' and request['uri'].endswith('/mail/search') and 'q' in params:
+        query = extract_param(params, 'q')
+        term = '|'.join(indexer.normalize_and_filter(indexer.tokenize(query, 500)))
+        cp = common_params(params)
+        items, start_key = search_mail_global(term, cp)
         return to_json_response(to_response_string(convert(items), start_key))
     if request['method'] == 'GET' and (m := re.match(r'.*/lists/([^/]+)/mail$', request['uri'])):
         list_name = m.group(1)
