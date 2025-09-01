@@ -1,21 +1,13 @@
 ## OpenJDK Mail Search
 
-OpenJDK Mail Search is a collection of Python tools for locating, indexing, and searching OpenJDK mailing list records.
+![Duke Mascot](duke.png)
+
+OpenJDK Mail Search is a collection of tools for locating, indexing, and searching OpenJDK mailing list records.
 
 The goal is to produce a website with a search interface that provides access to the entire mailing list
 history for targeted lists.
 
-These are the various tools in this repo:
-* `main.py` - CLI tool for seeding mailing list index
-* `server.py` - AWS Lambda API server for processing mailing list queries
-* `updater.py` - AWS Lambda scheduled job for continuously updating indexes
-* `index.html` - static website with mailing list search interface
-
-The website is deployed using a simple AWS stack:
-* DynamoDB - indexes and metadata stored here
-* S3 - static website content, including the search page
-* CloudFront - website gateway with API lambda function attached
-* Lambda - compute for API server and scheduled job
+https://openjdk.barlasgarden.com
 
 ## Indexing Pipeline
 
@@ -99,6 +91,20 @@ concurrent
 * Maximum token size of 500
 * Maximum of 2,500 terms per indexed mail record
 * Git and Mercurial changeset emails are not indexed
+
+## Project
+
+These are the various tools in this repo:
+* `main.py` - CLI tool for seeding mailing list index
+* `server.py` - AWS Lambda API server for processing mailing list queries
+* `updater.py` - AWS Lambda scheduled job for continuously updating indexes
+* `index.html` - static website with mailing list search interface
+
+The website is deployed using a simple AWS stack:
+* DynamoDB - indexes and metadata stored here
+* S3 - static website content, including the search page
+* CloudFront - website gateway with API lambda function attached
+* Lambda - compute for API server and scheduled job
 
 ## DynamoDB
 
