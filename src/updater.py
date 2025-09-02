@@ -22,6 +22,7 @@ MAILING_LISTS = [
     'net-dev',
     'nio-dev',
     'panama-dev',
+    'quality-discuss',
     'valhalla-dev',
     'valhalla-spec-comments',
 ]
