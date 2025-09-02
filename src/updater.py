@@ -25,6 +25,7 @@ MAILING_LISTS = [
     'quality-discuss',
     'valhalla-dev',
     'valhalla-spec-comments',
+    'valhalla-spec-experts',
 ]
 
 
