@@ -97,7 +97,7 @@ This makes strings like `java.util.concurrent` and `org/example/Main` discoverab
 ## Project
 
 These are the various tools in this repo:
-* `main.py` - CLI tool for seeding mailing list index
+* `seed.py` - CLI tool for seeding mailing list index
 * `server.py` - AWS Lambda API server for processing mailing list queries
 * `updater.py` - AWS Lambda scheduled job for continuously updating indexes
 * `index.html` - static website with mailing list search interface
