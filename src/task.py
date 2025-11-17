@@ -1,36 +1,28 @@
 import logging
+import re
 
-import indexer
 from database import Database
+from indexer import Indexer
+from params import IndexParams
 from mail import MailingList
 
 logger = logging.getLogger(__name__)
 
 
-def is_changeset_mail(mail):
-    return (mail.subject.startswith('hg:') or mail.subject.startswith('git: ')) and (
-            mail.subject.endswith('changesets') or mail.body.startswith('Changeset:'))
-
-
-def process_mail(ml: MailingList, db: Database, mail_url: str, ngram_length: int, max_terms: int, max_token_len: int):
+def process_mail(ml: MailingList, db: Database, mail_url: str, params: IndexParams):
     mail = ml.fetch_mail(mail_url)
-    md = mail._asdict()
-    if is_changeset_mail(mail):
+    if params.stop_func(mail):
         logger.info(f'skipping changeset mail, month={mail.month}, id={mail.id}, subject=\'{mail.subject}\'')
-        return md
-    terms = indexer.index(
-        author=mail.author,
-        email=mail.email,
-        subject=mail.subject,
-        body=mail.body,
-        ngram_length=ngram_length,
-        max_terms=max_terms,
-        max_token_length=max_token_len)
-    if len(terms) == max_terms:
-        logger.warning(f'truncated terms, month={mail.month}, id={mail.id}, subject=\'{mail.subject}\'')
-    md['authorkey'] = indexer.normalize(mail.author)
-    md['emailkey'] = indexer.normalize(mail.email)
-    md['terms'] = len(terms)
-    db.put_mail_record_and_terms(md, terms)
-    logger.info(f'processed mail record, month={mail.month}, id={mail.id}, terms={len(terms)}')
-    return md
+    else:
+        body = mail.body
+        for regex in params.stop_lines:
+            body = "\n".join(line for line in body.splitlines() if not re.match(regex, line))
+        terms = Indexer(params).index(
+            author=mail.author,
+            email=mail.email,
+            subject=mail.subject,
+            body=body)
+        terms = [t for t in terms if t not in params.stop_terms]
+        db.put_mail_record_and_terms(mail._asdict(), terms)
+        logger.info(f'processed mail record, month={mail.month}, id={mail.id}, terms={len(terms)}')
+    return mail

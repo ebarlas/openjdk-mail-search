@@ -6,6 +6,7 @@ from itertools import batched
 
 import database
 import mail
+import params
 import task
 
 logger = logging.getLogger(__name__)
@@ -24,12 +25,9 @@ def init_logging():
 def parse_args():
     p = argparse.ArgumentParser(description="Mailing list indexer")
     p.add_argument("--list", required=True)
-    p.add_argument("--db_workers", type=int, default=50)
-    p.add_argument("--mail_workers", type=int, default=25)
-    p.add_argument("--max_terms", type=int, default=2500)
-    p.add_argument("--max_token_length", type=int, default=500)
-    p.add_argument("--ngram_length", type=int, default=3)
-    p.add_argument("--throttle_sleep", type=int, default=1.5)
+    p.add_argument("--db_workers", type=int, default=10)
+    p.add_argument("--mail_workers", type=int, default=20)
+    p.add_argument("--throttle_sleep", type=int, default=1.6)
     return p.parse_args()
 
 
@@ -40,21 +38,21 @@ def main():
 
     executor = ThreadPoolExecutor(max_workers=args.mail_workers)
 
-    db = database.Database()
+    db = database.Database(args.db_workers)
     month, id = db.get_checkpoint(args.list)
     logger.info(f'loaded checkpoint, month={month}, id={id}')
 
     cp = mail.Checkpoint(month=month, id=id)
-    ml = mail.MailingList(mail.http_session(args.mail_workers), args.list, cp, args.mail_workers)
+    ml = mail.MailingList(mail.http_session(args.mail_workers), args.list, cp)
 
     def fn(mail_url):
-        return task.process_mail(ml, db, mail_url, args.ngram_length, args.max_terms, args.max_token_length)
+        return task.process_mail(ml, db, mail_url, params.DEFAULT_PARAMS)
 
     for batch in batched(ml.mail_urls(), args.mail_workers):
-        mds = list(executor.map(fn, batch))
-        md = mds[-1]
-        db.put_checkpoint(md)
-        logger.info(f'store checkpoint, month={md["month"]}, id={md["id"]}')
+        mails = list(executor.map(fn, batch))
+        last_mail = mails[-1]
+        db.put_checkpoint(last_mail.list, last_mail.month, last_mail.id)
+        logger.info(f'store checkpoint, month={last_mail.month}, id={last_mail.id}')
         time.sleep(args.throttle_sleep)
 
 

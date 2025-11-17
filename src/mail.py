@@ -1,5 +1,4 @@
 import re
-import threading
 from datetime import datetime
 from typing import NamedTuple
 
@@ -41,12 +40,11 @@ def http_session(concurrency_limit):
 
 
 class MailingList:
-    def __init__(self, session, name, checkpoint, concurrency_limit):
+    def __init__(self, session, name, checkpoint):
         self.name = name
         self.checkpoint = checkpoint
         self.url = f'{BASE_URL}/{name}'
         self.session = session
-        self.semaphore = threading.Semaphore(concurrency_limit)
 
     def mail_urls(self):
         checkpoint_month_url = f'{self.url}/{self.checkpoint.month}/date.html'
@@ -65,13 +63,9 @@ class MailingList:
             yield from mail_urls
 
     def fetch_html_page(self, url):
-        try:
-            self.semaphore.acquire()
-            with self.session.get(url) as response:
-                response.raise_for_status()
-                return BeautifulSoup(response.text, "html.parser")
-        finally:
-            self.semaphore.release()
+        with self.session.get(url) as response:
+            response.raise_for_status()
+            return BeautifulSoup(response.text, "html.parser")
 
     @staticmethod
     def convert_date(s):
@@ -89,8 +83,8 @@ class MailingList:
         email = page.select_one('a').get_text().replace(' at ', '@').strip()
         date = MailingList.convert_date(page.select_one('i').get_text().strip())
         pre = page.select_one('pre')
-        body = pre.get_text() if pre else '' # absent body observed
-        if not re.sub(r'[^\w+#]+', '', author): # author key has been observed to be '-' and '- -'
+        body = pre.get_text() if pre else ''  # absent body observed
+        if not re.sub(r'[^\w+#]+', '', author):  # author key has been observed to be '-' and '- -'
             author = email
         return Mail(list=list, month=month, id=id, subject=subject, author=author, email=email, date=date, body=body)
 

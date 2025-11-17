@@ -7,35 +7,54 @@ OpenJDK Mail Search is a collection of tools for locating, indexing, and searchi
 The goal is to produce a website with a search interface that provides access to the entire mailing list
 history for targeted lists.
 
+Searches are based on (1) exact-match for mail author name and email and (2) phrase-query for mail subject and body.
+All search results are organized by date.
+
+This leads to fast, predicatable results weighted by date, ascending or descending.
+
 https://openjdk.barlasgarden.com
 
 Thank you to [@bowbahdoe](https://github.com/bowbahdoe) for the Duke art and for other collaborations on this project. 
 
 ## Indexing Pipeline
 
-Indexing functionality resides in the `indexer.py` module. The module interface is an `index` function
+Indexing functionality resides in the `indexer.py` module. The module contain an `index` function
 that accepts mailing list record fields and returns a list of terms.
 
 There are 4 mailing list record fields that are indexed: (1) author, (2) email, (3) subject, and (4) body.
 
 They each pass through this indexing pipeline and contribute to the final terms result.
 
-### 1. Tokenization
+### 1. Record Filtering
 
-The field is split on whitespace. That's it!
+Mail records that match a stop-function are not indexed at all.
 
-* `Project Panama` → `Project`, `Panama`
+### 2. Line Filtering
 
-### 2. Normalization
+Mail body lines that match stop-line exclusion rules are removed from the input prior to tokenization.
 
-Tokens are converted to lowercase and stripped of non-word characters defined by `[^\w+#]`.
+For example, quoted text lines `\W*>` are not indexed.
+
+### 3. Tokenization
+
+The input is split on whitespace and converted to lowercase.
+
+* `Project Panama` → `project`, `panama`
+
+### 4. Pre-Filtering
+
+Prior to normalization, tokens longer than 100 characters and tokens with stop-prefixes (e.g. `https://`) are excluded.
+
+### 5. Normalization
+
+Tokens are stripped of non-word characters defined by `[^\w+#]`.
 
 * `snake_case` → `snake_case` (underscore kept)
 * `C++` → `c++` (plus kept)
 * `C#` → `c#` (hash kept)
 * `SSL-socket` → `sslsocket` (hyphen removed)
 
-### 3. Filtering
+### 6. Post-Filtering
 
 Stop words are removed from the normalized tokens.
 
@@ -47,11 +66,15 @@ was, will, with
 
 * `... This, is, an, outrage ...` → `... outrage ...` 
 
-### 4. N-grams
+### 7. Word N-grams
 
-In this stage, tokens are arranged into terms, the final product of this pipeline.
+Tokens are arranged into terms, the final product of this pipeline.
 
-Short, contiguous sequences of normalized and filtered tokens are added as terms.
+Short, contiguous sequences of tokens are added as terms.
+
+A word n-gram length of 3 is used for the mail body, and an n-gram length of 5 is used for the author, email, and subject.
+
+Additionally, author, email, and subject all include the full normalized token list as a single phrase term.
 
 * `... data, oriented, programming ...` →
 ```
@@ -63,36 +86,42 @@ Short, contiguous sequences of normalized and filtered tokens are added as terms
 [programming]
 ```
 
-An n-gram length of 3 is used for all 4 fields with a few additional rules.
+### 8. Term Filtering
 
-Author, email, and subject all include the full normalized token list as a single phrase term,
-plus all short n‑grams
+High-frequency terms, such as `[have]`, `[should]`, and `[i, think]` are removed.
 
-### 5. Code-Aware Segmentation
+### 9. Code-Aware Segmentation
 
-This stage performs additional tokenization on words that contain structural delimiters.
+This stage runs after pre-filtering. It performs additional tokenization on words that contain structural delimiters.
 
 Raw tokens are split on `/`, `.`, `=`, and `::`.
 
 All contiguous segment combinations are normalized, filtered, joined, and added as terms.
 This makes strings like `java.util.concurrent` and `org/example/Main` discoverable in multiple ways.
 
+A word n-gram length of 10 is used for code segments.
+
 * `java.util.concurrent` →
 ```
-[java, util, concurrent]
-[javautil, concurrent]
+[java]
+[javautil]
 [javautilconcurrent]
+[util]
 [utilconcurrent]
-[util, concurrent]
 [concurrent]
 ```
 
 ### Conventions and Edge Cases
 
 * Email is used as author if the author field doesn't exist in the mail record
-* Maximum token size of 500
-* Maximum of 2,500 terms per indexed mail record
 * Git and Mercurial changeset emails are not indexed
+* Quoted lines starting with `>` are not indexed
+* Word n-gram length of 3 for mail body
+* Word n-gram length of 5 for mail subject
+* Word n-gram length of 10 for code segments
+* Maximum token size of 100
+* Maximum of 100 code segment terms
+* Maximum of 2,500 terms per indexed mail record
 
 ## Project
 
@@ -122,17 +151,17 @@ Attribute definitions:
 * `emailkey` string - normalized author email, e.g. `peterparkermarvelcom`
 
 Tables:
-* `mail-search-terms`
-  * [PK] `list_term`
+* `openjdk-mail-terms`
+  * [PK] `p` (short for `list_term` partition key)
     * Slash-delimited composition of `list`, `term`
     * e.g. `net-dev/SSLSocket`
-  * [SK] `date_month_id`
+  * [SK] `s` (short for `date_month_id` sort key)
     * Slash-delimited composition of `date`, `month`, `id`
     * e.g. `2025-08-24T20:07:24Z/2025-August/027714`
   * [GSI] `term_date`
-    * [PK] `term`
-    * [SK] `date`
-* `mail-records`
+    * [PK] `t` (short for `term` partition key)
+    * [SK] `d` (short for `date` sort key
+* `openjdk-mail-records`
   * [PK] `list`
   * [SK] `month_id`
     * Slash-delimited composition of `month`, `id`
@@ -162,9 +191,9 @@ Tables:
   * [GSI] `datekey_date`
     * [PK] `datekey`
     * [SK] `date`
-* `mail-checkpoints`
+* `openjdk-mail-checkpoints`
   * [PK] `list`
-* `mail-status`
+* `openjdk-mail-status`
   * [PK] `pk`
 
 

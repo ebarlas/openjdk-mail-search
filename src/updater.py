@@ -2,6 +2,7 @@ import logging
 
 import database
 import mail
+import params
 import task
 
 logger = logging.getLogger(__name__)
@@ -47,14 +48,14 @@ def update_list(session, db, list_name):
     month, id = db.get_checkpoint(list_name)
     logger.info(f'loaded checkpoint, list={list_name}, month={month}, id={id}')
     cp = mail.Checkpoint(month=month, id=id)
-    ml = mail.MailingList(session, list_name, cp, 1)
+    ml = mail.MailingList(session, list_name, cp)
     db = database.Database()
     changed = False
     for mail_url in ml.mail_urls():
-        md = task.process_mail(ml, db, mail_url, 3, 2_500, 500)
-        db.put_checkpoint(md)
+        last_mail = task.process_mail(ml, db, mail_url, params.DEFAULT_PARAMS)
+        db.put_checkpoint(last_mail.list, last_mail.month, last_mail.id)
         changed = True
-        logger.info(f'stored checkpoint, month={md["month"]}, id={md["id"]}')
+        logger.info(f'stored checkpoint, month={last_mail["month"]}, id={last_mail["id"]}')
     return changed
 
 

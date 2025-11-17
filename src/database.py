@@ -4,10 +4,18 @@ from datetime import datetime, timezone
 
 import boto3
 
+import indexer
+
+TABLE_RECORDS = 'openjdk-mail-records'
+TABLE_CHECKPOINTS = 'openjdk-mail-checkpoints'
+TABLE_TERMS = 'openjdk-mail-terms'
+TABLE_STATUS = 'openjdk-mail-status'
+
+REGION = 'us-west-1'
 
 class Database:
-    def __init__(self, region='us-west-1', workers=10, max_retries=10, max_sleep=5.0):
-        self.client = boto3.client('dynamodb', region_name=region)
+    def __init__(self, workers=10, max_retries=10, max_sleep=5.0):
+        self.client = boto3.client('dynamodb', region_name=REGION)
         self.executor = ThreadPoolExecutor(max_workers=workers) if workers > 0 else None
         self.max_retries = max_retries
         self.max_sleep = max_sleep
@@ -58,11 +66,11 @@ class Database:
         month = mail['month']
         mail_id = mail['id']
         author = mail['author']
-        authorkey = mail['authorkey']
+        authorkey = indexer.normalize(author)
         email = mail['email']
-        emailkey = mail['emailkey']
+        emailkey = indexer.normalize(email)
         subject = mail['subject']
-        num_terms = f'{mail["terms"]}'
+        num_terms = str(len(terms))
 
         month_id = f"{month}/{mail_id}"
         authorkey_date = f"{authorkey}/{date}"
@@ -91,40 +99,34 @@ class Database:
             list_term = f"{list_name}/{joined_term}"
             date_month_id = f"{date}/{month}/{mail_id}"
             mst_item = {
-                'list_term': {'S': list_term},
-                'date_month_id': {'S': date_month_id},
-                'date': {'S': date},
-                'list': {'S': list_name},
-                'month': {'S': month},
-                'id': {'S': mail_id},
-                'author': {'S': author},
-                'email': {'S': email},
-                'subject': {'S': subject},
-                'term': {'S': joined_term}
+                'p': {'S': list_term},
+                's': {'S': date_month_id},
+                'd': {'S': date},
+                't': {'S': joined_term}
             }
             search_terms_reqs.append({'PutRequest': {'Item': mst_item}})
 
         request_items = {
-            'mail-records': [{'PutRequest': {'Item': mail_records_item}}],
-            'mail-search-terms': search_terms_reqs
+            TABLE_RECORDS: [{'PutRequest': {'Item': mail_records_item}}],
+            TABLE_TERMS: search_terms_reqs
         }
 
         self._batch_write_all(request_items)
 
-    def put_checkpoint(self, mail: dict):
+    def put_checkpoint(self, mailing_list: str, month: str, mail_id: str):
         item = {
-            'list': {'S': mail['list']},
-            'month': {'S': mail['month']},
-            'id': {'S': mail['id']},
+            'list': {'S': mailing_list},
+            'month': {'S': month},
+            'id': {'S': mail_id},
         }
         self.client.put_item(
-            TableName='mail-checkpoints',
+            TableName=TABLE_CHECKPOINTS,
             Item=item
         )
 
     def get_checkpoint(self, list_name):
         res = self.client.get_item(
-            TableName='mail-checkpoints',
+            TableName=TABLE_CHECKPOINTS,
             Key={
                 'list': {
                     'S': list_name
@@ -146,7 +148,7 @@ class Database:
             expr_attr_names["#last_update"] = "last_update"
 
         self.client.update_item(
-            TableName='mail-status',
+            TableName=TABLE_STATUS,
             Key={"pk": {"N": "1"}},
             UpdateExpression=update_expr,
             ExpressionAttributeNames=expr_attr_names,
