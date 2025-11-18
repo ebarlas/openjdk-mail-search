@@ -31,29 +31,32 @@ def parse_args():
     return p.parse_args()
 
 
-def main():
-    init_logging()
-    args = parse_args()
-    logger.info(args)
+def index(list_name, db_workers, mail_workers, throttle_sleep):
+    executor = ThreadPoolExecutor(max_workers=mail_workers)
 
-    executor = ThreadPoolExecutor(max_workers=args.mail_workers)
-
-    db = database.Database(args.db_workers)
-    month, id = db.get_checkpoint(args.list)
+    db = database.Database(db_workers)
+    month, id = db.get_checkpoint(list_name)
     logger.info(f'loaded checkpoint, month={month}, id={id}')
 
     cp = mail.Checkpoint(month=month, id=id)
-    ml = mail.MailingList(mail.http_session(args.mail_workers), args.list, cp)
+    ml = mail.MailingList(mail.http_session(mail_workers), list_name, cp)
 
     def fn(mail_url):
         return task.process_mail(ml, db, mail_url, params.DEFAULT_PARAMS)
 
-    for batch in batched(ml.mail_urls(), args.mail_workers):
+    for batch in batched(ml.mail_urls(), mail_workers):
         mails = list(executor.map(fn, batch))
         last_mail = mails[-1]
         db.put_checkpoint(last_mail.list, last_mail.month, last_mail.id)
         logger.info(f'store checkpoint, month={last_mail.month}, id={last_mail.id}')
-        time.sleep(args.throttle_sleep)
+        time.sleep(throttle_sleep)
+
+
+def main():
+    init_logging()
+    args = parse_args()
+    logger.info(args)
+    index(args.list, args.db_workers, args.mail_workers, args.throttle_sleep)
 
 
 if __name__ == '__main__':
