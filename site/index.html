@@ -467,7 +467,7 @@
 
 <script>
     // ---------- Config ----------
-    const API_ROOT = 'https://www.barlasgarden.com/openjdk';
+    const API_ROOT = 'https://openjdk.barlasgarden.com/api';
     const resultsBody = document.querySelector('#results tbody');
     const nextBtn = document.querySelector('#next');
     const statusEl = document.querySelector('#status');
@@ -585,8 +585,15 @@
             aList.href = links.list;
             aList.target = '_blank';
             aList.rel = 'noopener';
-            aList.title = `Open list page: ${it.list}`;
+            aList.title = `Search by list: ${it.list || ''}`;
             aList.textContent = it.list;
+            aList.addEventListener('click', (e) => {
+                e.preventDefault();
+                setMode('list-latest');
+                setListValue(it.list || '')
+                doPushState();
+                doSearch();
+            });
             tdList.appendChild(aList);
             tr.appendChild(tdList);
 
@@ -600,7 +607,6 @@
                 e.preventDefault();
                 setMode('author');
                 document.getElementById('author').value = it.author || '';
-                setListValue(it.list || '');
                 doPushState();
                 doSearch();
             });
@@ -617,7 +623,6 @@
                 e.preventDefault();
                 setMode('text-search');
                 document.getElementById('q').value = it.subject ?? '';
-                setListValue(it.list || '');
                 doPushState();
                 doSearch();
             });
@@ -634,7 +639,6 @@
                 e.preventDefault();
                 setMode('email');
                 document.getElementById('email').value = it.email || '';
-                setListValue(it.list || '');
                 doPushState();
                 doSearch();
             });
@@ -892,9 +896,7 @@
 
     // Init: if URL has params, hydrate and run the search; otherwise default mode only
     (function init() {
-        // Start background status fetch + 1-minute refresh
         refreshIngestStatus();
-        setInterval(refreshIngestStatus, 60_000);
 
         if (location.search) {
             const p = paramsFromUrl();
