@@ -55,7 +55,7 @@ def update_list(session, db, list_name):
         last_mail = task.process_mail(ml, db, mail_url, params.DEFAULT_PARAMS)
         db.put_checkpoint(last_mail.list, last_mail.month, last_mail.id)
         changed = True
-        logger.info(f'stored checkpoint, month={last_mail["month"]}, id={last_mail["id"]}')
+        logger.info(f'stored checkpoint, month={last_mail.month}, id={last_mail.id}')
     return changed
 
 

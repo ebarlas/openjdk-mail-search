@@ -8,9 +8,8 @@ The goal is to produce a website with a search interface that provides access to
 history for targeted lists.
 
 Searches are based on (1) exact-match for mail author name and email and (2) phrase-query for mail subject and body.
-All search results are organized by date.
 
-This leads to fast, predicatable results weighted by date, ascending or descending.
+This results in fast, predicatable search outcomes tailored for simple code-related queries.
 
 https://openjdk.barlasgarden.com
 
