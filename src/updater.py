@@ -68,5 +68,3 @@ def lambda_handler(event, context):
     changed = any([update_list(session, db, list_name) for list_name in MAILING_LISTS])
     date = db.update_status(changed)
     logger.info(f'updated status, changed={changed}, date={date}')
-
-lambda_handler(None, None)
