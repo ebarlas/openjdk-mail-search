@@ -25,6 +25,25 @@ class CommonParams(NamedTuple):
     date_range: tuple[str, str] | None
 
 
+class Request(NamedTuple):
+    method: str
+    uri: str
+    query: str
+    params: dict[str, list[str]]
+
+    def uri_with_query(self):
+        return f'{self.uri}?{self.query}' if self.query else self.uri
+
+    @staticmethod
+    def new(event):
+        request = event['Records'][0]['cf']['request']
+        method = request['method']
+        uri = request['uri']
+        query = request['querystring'] if 'querystring' in request else ''
+        params = urllib.parse.parse_qs(query)
+        return Request(method=method, uri=uri, query=query, params=params)
+
+
 def search_mail(list_name, term, cp: CommonParams):
     params = {
         'TableName': TABLE_TERMS,
@@ -346,7 +365,7 @@ def extract_param(params, name, default=None, func=None):
         return default
 
 
-def common_params(params):
+def common_params(params: dict[str, list[str]]):
     forward = extract_param(params, 'order', False, lambda p: p == 'asc')
     limit = max(1, min(100, extract_param(params, "limit", 10, int)))
     start_key = extract_param(params, "cursor", None, _b64d)
@@ -357,67 +376,54 @@ def common_params(params):
 
 
 def lambda_handler(event, context):
-    request = event['Records'][0]['cf']['request']
+    r = Request.new(event)
+    print(f'method={r.method}, path={r.uri_with_query()}')
 
-    qs = request['querystring'] if 'querystring' in request else ''
-    print(f'method={request["method"]}, path={request["uri"]}?{qs}')
+    cp = common_params(r.params)
 
-    params = urllib.parse.parse_qs(qs)
-
-    if request['method'] == 'GET' and (
-            m := re.match(r'.*/lists/([^/]+)/mail/search$', request['uri'])) and 'q' in params:
+    if r.method == 'GET' and (m := re.match(r'.*/lists/([^/]+)/mail/search$', r.uri)) and 'q' in r.params:
         list_name = m.group(1)
-        query = extract_param(params, 'q')
+        query = extract_param(r.params, 'q')
         idx = indexer.Indexer(DEFAULT_PARAMS)
         term = '|'.join(idx.normalize_and_filter(idx.tokenize(query)))
-        cp = common_params(params)
         items, start_key = search_mail(list_name, term, cp)
         return to_json_response(to_response_string(convert(get_mail(items)), start_key))
-    if request['method'] == 'GET' and request['uri'].endswith('/mail/search') and 'q' in params:
-        query = extract_param(params, 'q')
+    if r.method == 'GET' and r.uri.endswith('/mail/search') and 'q' in r.params:
+        query = extract_param(r.params, 'q')
         idx = indexer.Indexer(DEFAULT_PARAMS)
         term = '|'.join(idx.normalize_and_filter(idx.tokenize(query)))
-        cp = common_params(params)
         items, start_key = search_mail_global(term, cp)
         return to_json_response(to_response_string(convert(get_mail(items)), start_key))
-    if request['method'] == 'GET' and (m := re.match(r'.*/lists/([^/]+)/mail$', request['uri'])):
+    if r.method == 'GET' and (m := re.match(r'.*/lists/([^/]+)/mail$', r.uri)):
         list_name = m.group(1)
-        cp = common_params(params)
         items, start_key = latest_mail(list_name, cp)
         return to_json_response(to_response_string(convert(items), start_key))
-    if request['method'] == 'GET' and request['uri'].endswith('/mail'):
-        cp = common_params(params)
+    if r.method == 'GET' and r.uri.endswith('/mail'):
         items, start_key = latest_mail_global(cp)
         return to_json_response(to_response_string(convert(items), start_key))
-    if request['method'] == 'GET' and (
-            m := re.match(r'.*/lists/([^/]+)/mail/byauthor$', request['uri'])) and 'author' in params:
+    if r.method == 'GET' and (m := re.match(r'.*/lists/([^/]+)/mail/byauthor$', r.uri)) and 'author' in r.params:
         list_name = m.group(1)
-        author = extract_param(params, 'author')
+        author = extract_param(r.params, 'author')
         authorkey = indexer.normalize(author)
-        cp = common_params(params)
         items, start_key = mail_by_author(list_name, authorkey, cp)
         return to_json_response(to_response_string(convert(items), start_key))
-    if request['method'] == 'GET' and (
-            m := re.match(r'.*/lists/([^/]+)/mail/byemail$', request['uri'])) and 'email' in params:
+    if r.method == 'GET' and (m := re.match(r'.*/lists/([^/]+)/mail/byemail$', r.uri)) and 'email' in r.params:
         list_name = m.group(1)
-        email = extract_param(params, 'email')
+        email = extract_param(r.params, 'email')
         emailkey = indexer.normalize(email)
-        cp = common_params(params)
         items, start_key = mail_by_email(list_name, emailkey, cp)
         return to_json_response(to_response_string(convert(items), start_key))
-    if request['method'] == 'GET' and request['uri'].endswith('/mail/byauthor') and 'author' in params:
-        author = extract_param(params, 'author')
+    if r.method == 'GET' and r.uri.endswith('/mail/byauthor') and 'author' in r.params:
+        author = extract_param(r.params, 'author')
         authorkey = indexer.normalize(author)
-        cp = common_params(params)
         items, start_key = mail_by_author_global(authorkey, cp)
         return to_json_response(to_response_string(convert(items), start_key))
-    if request['method'] == 'GET' and request['uri'].endswith('/mail/byemail') and 'email' in params:
-        email = extract_param(params, 'email')
+    if r.method == 'GET' and r.uri.endswith('/mail/byemail') and 'email' in r.params:
+        email = extract_param(r.params, 'email')
         emailkey = indexer.normalize(email)
-        cp = common_params(params)
         items, start_key = mail_by_email_global(emailkey, cp)
         return to_json_response(to_response_string(convert(items), start_key))
-    if request['method'] == 'GET' and request['uri'].endswith('/mail/status'):
+    if r.method == 'GET' and r.uri.endswith('/mail/status'):
         last_check, last_update = get_status()
         res = {
             'last_check': last_check,
