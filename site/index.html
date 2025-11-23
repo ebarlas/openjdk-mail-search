@@ -150,6 +150,11 @@
             background: color-mix(in oklab, Canvas 96%, CanvasText 2%);
         }
 
+        /* SCM-sourced records (RFR: or Integrated: or Withdrawn: in subject) */
+        tbody tr.scm-source td:first-child {
+            border-left: 3px solid #2563EB;
+        }
+
         a {
             color: inherit;
             text-decoration: underline;
@@ -165,6 +170,25 @@
             justify-content: flex-end;
             gap: .5rem;
             margin-top: .75rem;
+        }
+
+        /* Legend for SCM-sourced records */
+        .legend {
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+            font-size: 12px;
+            opacity: 0.75;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .legend-indicator {
+            width: 20px;
+            height: 12px;
+            border-left: 3px solid #2563EB;
+            background: rgba(37, 99, 235, 0.04);
+            border-radius: 2px;
         }
 
         /* Header: title left, meta (timestamps + repo) right */
@@ -446,6 +470,11 @@
         <div id="status" class="status" role="status" aria-live="polite"></div>
     </form>
 
+    <div class="legend">
+        <span class="legend-indicator"></span>
+        <span>Pull request activity</span>
+    </div>
+
     <div class="table-wrap">
         <table id="results">
             <thead>
@@ -580,6 +609,12 @@
         for (const it of items) {
             const links = openjdkLinks(it);
             const tr = document.createElement('tr');
+
+            // Mark SCM-sourced records
+            const subject = it.subject || '';
+            if (subject.includes('RFR:') || subject.includes('Integrated:') || subject.includes('Withdrawn:')) {
+                tr.classList.add('scm-source');
+            }
 
             // List
             const tdList = document.createElement('td');
