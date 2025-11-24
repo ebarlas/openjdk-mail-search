@@ -9,7 +9,7 @@ history for targeted lists.
 
 Searches are based on (1) exact-match for mail author name and email and (2) phrase-query for mail subject and body.
 
-This results in fast, predicatable search outcomes tailored for simple code-related queries.
+This results in fast, predictable search outcomes tailored for simple code-related queries.
 
 https://openjdk.barlasgarden.com
 
