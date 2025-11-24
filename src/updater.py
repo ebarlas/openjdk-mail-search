@@ -17,6 +17,7 @@ MAILING_LISTS = [
     'crac-dev',
     'discuss',
     'graal-dev',
+    'javadoc-dev',
     'jdk-dev',
     'jextract-dev',
     'jigsaw-dev',
