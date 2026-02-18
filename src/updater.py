@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 MAILING_LISTS = [
     'amber-dev',
+    'amber-spec-experts',
     'babylon-dev',
     'classfile-api-dev',
     'client-libs-dev',
