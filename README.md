@@ -198,6 +198,8 @@ Tables:
 
 ## Query API
 
+Full request/response details, schemas, and examples are in [openapi.yaml](openapi.yaml) (OpenAPI 3.0).
+
 * Search mail in a list
   * `GET /lists/{list}/mail/search?q={query}&order={asc|desc}&limit={limit}&cursor={cursor}&from={from}&to={to}`
 * Get latest mail for a list

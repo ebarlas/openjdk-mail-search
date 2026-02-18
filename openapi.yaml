@@ -1,0 +1,375 @@
+openapi: 3.0.3
+info:
+  title: OpenJDK Mail Search API
+  description: |
+    JSON REST API for searching and browsing OpenJDK mailing list archives.
+    Supports full-text search (phrase/term over subject and body), listing latest mail,
+    and filtering by author name or email, either within a single list or across all lists.
+  version: 1.0.0
+
+servers:
+  - url: https://openjdk.barlasgarden.com/api
+    description: Production API
+
+tags:
+  - name: Search (list)
+    description: Search within a single mailing list; use when the target list is known (e.g. net-dev, core-libs-dev).
+  - name: Search (global)
+    description: Search across all lists; use when the list is unknown or cross-list search is desired.
+  - name: Latest mail (list)
+    description: Chronological mail for one list.
+  - name: Latest mail (global)
+    description: Chronological mail across all lists.
+  - name: By author
+    description: Mail by author display name (normalized for matching).
+  - name: By email
+    description: Mail by author email address (normalized for matching).
+  - name: Status
+    description: Index freshness and health.
+
+paths:
+  /lists/{list}/mail/search:
+    get:
+      operationId: searchMailInList
+      summary: Search mail in a single list
+      description: |
+        Full-text search within the given mailing list. The query `q` is tokenized on whitespace,
+        lowercased, normalized (non-word characters except `+` and `#` stripped), stop words removed,
+        and matched as phrase/term index terms. Use when the user cares about a specific list.
+      tags: [Search (list)]
+      parameters:
+        - $ref: '#/components/parameters/ListPath'
+        - $ref: '#/components/parameters/QueryQ'
+        - $ref: '#/components/parameters/Order'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/FromDate'
+        - $ref: '#/components/parameters/ToDate'
+      responses:
+        '200':
+          description: Matching mail; use `cursor` from the response to request the next page.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginatedMailResponse' }
+              example:
+                items:
+                  - list: net-dev
+                    month: "2025-August"
+                    id: "027714"
+                    date: "2025-08-24T20:07:24Z"
+                    author: Brian Goetz
+                    email: brian.goetz@oracle.com
+                    subject: SSL socket behavior
+                cursor: eyJsaXN0Ijp7IlMiOiJuZXQtZGV2In0sIm1vbnRoX2lkIjp7IlMiOiIyMDI1LUF1Z3VzdC8wMjc3MTQifX0=
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /mail/search:
+    get:
+      operationId: searchMailGlobal
+      summary: Search mail across all lists
+      description: |
+        Full-text search over all mailing lists. Same query semantics as list-scoped search.
+        Use when the list is unknown or the user wants cross-list results.
+      tags: [Search (global)]
+      parameters:
+        - $ref: '#/components/parameters/QueryQ'
+        - $ref: '#/components/parameters/Order'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/FromDate'
+        - $ref: '#/components/parameters/ToDate'
+      responses:
+        '200':
+          description: Matching mail across lists; use `cursor` for next page.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginatedMailResponse' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /lists/{list}/mail:
+    get:
+      operationId: getLatestMailInList
+      summary: Get latest mail for a list
+      description: Returns mail for the given list in date order. Use when browsing a single list.
+      tags: [Latest mail (list)]
+      parameters:
+        - $ref: '#/components/parameters/ListPath'
+        - $ref: '#/components/parameters/Order'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/FromDate'
+        - $ref: '#/components/parameters/ToDate'
+      responses:
+        '200':
+          description: Mail in chronological order; use `cursor` for next page.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginatedMailResponse' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /mail:
+    get:
+      operationId: getLatestMailGlobal
+      summary: Get latest mail across all lists
+      description: Returns mail from all lists in date order. Use for a global chronological feed.
+      tags: [Latest mail (global)]
+      parameters:
+        - $ref: '#/components/parameters/Order'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/FromDate'
+        - $ref: '#/components/parameters/ToDate'
+      responses:
+        '200':
+          description: Mail in chronological order; use `cursor` for next page.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginatedMailResponse' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /lists/{list}/mail/byauthor:
+    get:
+      operationId: getMailByAuthorInList
+      summary: Get mail by author in a list
+      description: |
+        Mail in the given list whose author display name matches (after normalization).
+        Author is normalized: lowercased and non-word characters except `+` and `#` removed,
+        so "John Doe" and "john doe" match the same.
+      tags: [By author]
+      parameters:
+        - $ref: '#/components/parameters/ListPath'
+        - $ref: '#/components/parameters/AuthorQuery'
+        - $ref: '#/components/parameters/Order'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/FromDate'
+        - $ref: '#/components/parameters/ToDate'
+      responses:
+        '200':
+          description: Mail by that author in the list; use `cursor` for next page.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginatedMailResponse' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /lists/{list}/mail/byemail:
+    get:
+      operationId: getMailByEmailInList
+      summary: Get mail by email in a list
+      description: |
+        Mail in the given list whose author email matches (after normalization).
+        Email is normalized the same way as author (lowercased, non-word chars removed).
+      tags: [By email]
+      parameters:
+        - $ref: '#/components/parameters/ListPath'
+        - $ref: '#/components/parameters/EmailQuery'
+        - $ref: '#/components/parameters/Order'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/FromDate'
+        - $ref: '#/components/parameters/ToDate'
+      responses:
+        '200':
+          description: Mail by that email in the list; use `cursor` for next page.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginatedMailResponse' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /mail/byauthor:
+    get:
+      operationId: getMailByAuthorGlobal
+      summary: Get mail by author across all lists
+      description: Mail from any list whose author display name matches (normalized). Use for cross-list author lookup.
+      tags: [By author]
+      parameters:
+        - $ref: '#/components/parameters/AuthorQuery'
+        - $ref: '#/components/parameters/Order'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/FromDate'
+        - $ref: '#/components/parameters/ToDate'
+      responses:
+        '200':
+          description: Mail by that author across lists; use `cursor` for next page.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginatedMailResponse' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /mail/byemail:
+    get:
+      operationId: getMailByEmailGlobal
+      summary: Get mail by email across all lists
+      description: Mail from any list whose author email matches (normalized). Use for cross-list email lookup.
+      tags: [By email]
+      parameters:
+        - $ref: '#/components/parameters/EmailQuery'
+        - $ref: '#/components/parameters/Order'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/FromDate'
+        - $ref: '#/components/parameters/ToDate'
+      responses:
+        '200':
+          description: Mail by that email across lists; use `cursor` for next page.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginatedMailResponse' }
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /mail/status:
+    get:
+      operationId: getMailStatus
+      summary: Get index status
+      description: Returns last check and last update timestamps for the mail index. No pagination.
+      tags: [Status]
+      parameters: []
+      responses:
+        '200':
+          description: Index status.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StatusResponse' }
+              example:
+                last_check: "2025-02-17T12:00:00Z"
+                last_update: "2025-02-17T12:05:00Z"
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  parameters:
+    ListPath:
+      name: list
+      in: path
+      required: true
+      description: Mailing list name (e.g. net-dev, core-libs-dev, amber-dev).
+      schema: { type: string }
+      example: net-dev
+    QueryQ:
+      name: q
+      in: query
+      required: true
+      description: |
+        Search query. Tokenized on whitespace, lowercased, normalized (strip non-word except + and #),
+        stop words removed; matched as phrase/term index terms. See project README for full indexing pipeline.
+      schema: { type: string }
+      example: SSLSocket
+    AuthorQuery:
+      name: author
+      in: query
+      required: true
+      description: Author display name. Matching is by normalized form (lowercased, non-word chars except + and # removed).
+      schema: { type: string }
+      example: Brian Goetz
+    EmailQuery:
+      name: email
+      in: query
+      required: true
+      description: Author email. Matching is by normalized form (same normalization as author).
+      schema: { type: string }
+      example: brian.goetz@oracle.com
+    Order:
+      name: order
+      in: query
+      required: false
+      description: Sort order by date. asc = oldest first, desc = newest first.
+      schema: { type: string, enum: [asc, desc], default: desc }
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Page size. Clamped to 1-100.
+      schema: { type: integer, minimum: 1, maximum: 100, default: 10 }
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque pagination cursor. Use the `cursor` value from the previous response to get the next page; do not construct manually.
+      schema: { type: string }
+    FromDate:
+      name: from
+      in: query
+      required: false
+      description: Start of date range (inclusive). ISO-8601 date or datetime (e.g. 2025-01-01 or 2025-01-01T00:00:00Z). Effective only when both `from` and `to` are present.
+      schema: { type: string }
+    ToDate:
+      name: to
+      in: query
+      required: false
+      description: End of date range (inclusive). ISO-8601 date or datetime. Effective only when both `from` and `to` are present.
+      schema: { type: string }
+
+  schemas:
+    Mail:
+      type: object
+      required: [list, month, id, date, author, email, subject]
+      description: A single mailing list message record.
+      properties:
+        list:
+          type: string
+          description: Mailing list name (e.g. net-dev).
+        month:
+          type: string
+          description: Month bucket (e.g. 2025-August).
+        id:
+          type: string
+          description: Message ID within the month (e.g. 027714).
+        date:
+          type: string
+          description: ISO-8601 datetime in UTC (e.g. 2025-08-24T20:07:24Z).
+        author:
+          type: string
+          description: Author display name.
+        email:
+          type: string
+          description: Author email address.
+        subject:
+          type: string
+          description: Message subject line.
+      example:
+        list: net-dev
+        month: "2025-August"
+        id: "027714"
+        date: "2025-08-24T20:07:24Z"
+        author: Brian Goetz
+        email: brian.goetz@oracle.com
+        subject: SSL socket behavior
+    PaginatedMailResponse:
+      type: object
+      required: [items]
+      description: Paginated list of mail. Absence of `cursor` means no more pages.
+      properties:
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/Mail' }
+        cursor:
+          type: string
+          description: Opaque token to pass as the `cursor` query parameter for the next page. Omitted when there are no more results.
+    StatusResponse:
+      type: object
+      description: Index status; values are ISO-8601 timestamps or null if unknown.
+      properties:
+        last_check:
+          type: string
+          nullable: true
+          description: When the index was last checked for updates.
+        last_update:
+          type: string
+          nullable: true
+          description: When the index was last updated.
+
+  responses:
+    NotFound:
+      description: Unmatched path. Response body is plain text "Not Found", not JSON.
+      content:
+        text/plain:
+          schema: { type: string, example: Not Found }
