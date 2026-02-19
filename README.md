@@ -216,3 +216,26 @@ Full request/response details, schemas, and examples are in [openapi.yaml](opena
   * `GET /mail/byemail?email={email}&order={asc|desc}&limit={limit}&cursor={cursor}&from={from}&to={to}`
 * Get mail across all lists
   * `GET /mail?order={asc|desc}&limit={limit}&cursor={cursor}&from={from}&to={to}`
+
+## MCP
+
+The [mcp](mcp/) sub-project provides an MCP server for searching and browsing OpenJDK mailing list archives.
+
+Below is an example with Cursor IDE. Add it via Settings → MCP and edit `~/.cursor/mcp.json`; add an `openjdk-mail` entry under `mcpServers`:
+
+```
+"openjdk-mail": {
+  "command": "uv",
+  "args": [
+    "run",
+    "--project",
+    "/path/to/openjdk-mailing/mcp",
+    "--directory",
+    "/path/to/openjdk-mailing/mcp",
+    "python",
+    "mcp_server.py"
+  ]
+}
+```
+
+Replace `/path/to/openjdk-mailing` with your repo path (e.g. `/Users/you/Code/openjdk-mailing`).
